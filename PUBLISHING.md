@@ -18,18 +18,17 @@ npm run package
 Inspect the generated `.vsix` file list in the `vsce package` output before publishing.
 
 The `.github/workflows/ci.yml` workflow runs the same typecheck and VSIX
-packaging checks on pushes and pull requests targeting `main`.
+packaging checks on pull requests targeting `main`.
 
 ## Publish with GitHub Actions
 
 The `.github/workflows/publish.yml` workflow publishes the extension to the
-Visual Studio Marketplace.
+Visual Studio Marketplace on pushes to `main`.
 
-To publish a release from a tag:
+To publish a release:
 
 ```bash
-git tag v0.0.1
-git push origin v0.0.1
+git push origin main
 ```
 
 You can also run **Publish VS Code Extension** manually from the GitHub Actions
