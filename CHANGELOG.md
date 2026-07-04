@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.2
+
+- Bumped the Marketplace package version for the next publish.
+
 ## 0.0.1
 
 - Initial Marketplace-ready package.

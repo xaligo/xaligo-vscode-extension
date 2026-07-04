@@ -52,5 +52,5 @@ npx vsce publish
 To publish the already-built VSIX:
 
 ```bash
-npx vsce publish --packagePath xaligo-vscode-extension-0.0.1.vsix
+npx vsce publish --packagePath xaligo-vscode-extension-0.0.2.vsix
 ```
