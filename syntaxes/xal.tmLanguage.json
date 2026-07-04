@@ -1,0 +1,227 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "xaligo",
+  "scopeName": "text.xml.xaligo",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#connection-shorthand"
+    },
+    {
+      "include": "#tags"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.xml.xaligo",
+          "begin": "<!--",
+          "end": "-->"
+        }
+      ]
+    },
+    "connection-shorthand": {
+      "patterns": [
+        {
+          "name": "meta.connection.shorthand.xaligo",
+          "match": "^\\s*([A-Za-z0-9_.:-]+)\\s*(---|==>)\\s*([A-Za-z0-9_.:-]+)\\s*$",
+          "captures": {
+            "1": {
+              "name": "variable.other.source.xaligo"
+            },
+            "2": {
+              "name": "keyword.operator.connection.xaligo"
+            },
+            "3": {
+              "name": "variable.other.destination.xaligo"
+            }
+          }
+        }
+      ]
+    },
+    "tags": {
+      "patterns": [
+        {
+          "name": "meta.tag.xml.xaligo",
+          "begin": "(</?)([a-z][a-z0-9-]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.xml.xaligo"
+            },
+            "2": {
+              "patterns": [
+                {
+                  "include": "#tag-names"
+                }
+              ]
+            }
+          },
+          "end": "(/?>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.end.xml.xaligo"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#attributes"
+            },
+            {
+              "name": "punctuation.separator.key-value.xml.xaligo",
+              "match": "="
+            }
+          ]
+        }
+      ]
+    },
+    "tag-names": {
+      "patterns": [
+        {
+          "name": "keyword.control.layout.xaligo",
+          "match": "\\b(?:frame|container|row|col)\\b"
+        },
+        {
+          "name": "entity.name.type.cloud.xaligo",
+          "match": "\\b(?:aws-account|aws-cloud|aws-cloud-alt|region|availability-zone|vpc)\\b"
+        },
+        {
+          "name": "support.class.network.xaligo",
+          "match": "\\b(?:public-subnet|private-subnet|security-group|auto-scaling-group)\\b"
+        },
+        {
+          "name": "support.type.group.xaligo",
+          "match": "\\b(?:server-contents|corporate-data-center|ec2-instance-contents|spot-fleet|aws-iot-greengrass-deployment|aws-iot-greengrass|elastic-beanstalk-container|aws-step-functions-workflow|generic-group)\\b"
+        },
+        {
+          "name": "support.function.item.xaligo",
+          "match": "\\b(?:item|spacer|blank)\\b"
+        },
+        {
+          "name": "keyword.operator.connection.tag.xaligo",
+          "match": "\\bconnection\\b"
+        },
+        {
+          "name": "entity.name.tag.other.xaligo",
+          "match": "\\b[a-z][a-z0-9-]*\\b"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "meta.attribute-with-value.xml.xaligo",
+          "begin": "\\b([a-z][a-z0-9-]*)\\b\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "patterns": [
+                {
+                  "include": "#attribute-names"
+                }
+              ]
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.xml.xaligo"
+            }
+          },
+          "end": "(?=\\s|/?>)",
+          "patterns": [
+            {
+              "include": "#strings"
+            }
+          ]
+        },
+        {
+          "patterns": [
+            {
+              "include": "#attribute-names"
+            }
+          ],
+          "match": "\\b[a-z][a-z0-9-]*\\b"
+        }
+      ]
+    },
+    "attribute-names": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.known.xaligo",
+          "match": "\\b(?:width|height|class|layout|gap|title|id|src|dst|span|row|col|visible|border|item-size|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|icon-id|name|ref|kind|color|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead)\\b"
+        },
+        {
+          "name": "entity.other.attribute-name.xml.xaligo",
+          "match": "\\b[a-z][a-z0-9-]*\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.xml.xaligo",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "include": "#entities"
+            },
+            {
+              "include": "#spacing-classes"
+            },
+            {
+              "include": "#constants"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.xml.xaligo",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "include": "#entities"
+            },
+            {
+              "include": "#spacing-classes"
+            },
+            {
+              "include": "#constants"
+            }
+          ]
+        }
+      ]
+    },
+    "entities": {
+      "patterns": [
+        {
+          "name": "constant.character.entity.xml.xaligo",
+          "match": "&(?:[a-zA-Z][a-zA-Z0-9]+|#[0-9]+|#x[0-9a-fA-F]+);"
+        }
+      ]
+    },
+    "spacing-classes": {
+      "patterns": [
+        {
+          "name": "constant.language.spacing.xaligo",
+          "match": "\\b(?:pa|ma|px|py|mx|my|pt|pr|pb|pl|mt|mr|mb|ml)-[0-9]+\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.xaligo",
+          "match": "\\b(?:true|false)\\b"
+        },
+        {
+          "name": "constant.language.layout.xaligo",
+          "match": "\\b(?:horizontal|vertical|staggered|solid|dashed|dotted|none|connection|traffic|route|arrow|bar|triangle|circle)\\b"
+        },
+        {
+          "name": "constant.numeric.xaligo",
+          "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+        }
+      ]
+    }
+  }
+}

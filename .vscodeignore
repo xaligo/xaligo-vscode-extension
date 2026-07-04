@@ -1,0 +1,12 @@
+.git/**
+.gitignore
+.vscode/**
+.github/**
+AGENTS.md
+PUBLISHING.md
+node_modules/**
+src/**
+examples/**
+*.vsix
+tsconfig.json
+vite.config.ts

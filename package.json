@@ -1,0 +1,166 @@
+{
+  "name": "xaligo-vscode-extension",
+  "displayName": "xaligo",
+  "description": "VS Code language support for the xaligo .xal diagram DSL.",
+  "version": "0.0.1",
+  "publisher": "ryo-arima",
+  "license": "MIT",
+  "icon": "assets/xaligo-icon-vscode-128.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryo-arima/xaligo-vscode-extension.git"
+  },
+  "homepage": "https://github.com/ryo-arima/xaligo-vscode-extension#readme",
+  "bugs": {
+    "url": "https://github.com/ryo-arima/xaligo-vscode-extension/issues"
+  },
+  "qna": false,
+  "galleryBanner": {
+    "color": "#0b2f73",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Visualization"
+  ],
+  "keywords": [
+    "xaligo",
+    "xal",
+    "diagram",
+    "syntax"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:xal",
+    "onCommand:xaligo.openPreview",
+    "onCommand:xaligo.preview.zoomIn",
+    "onCommand:xaligo.preview.zoomOut",
+    "onCommand:xaligo.preview.resetZoom",
+    "onCommand:xaligo.preview.resetView",
+    "onCommand:xaligo.preview.close"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "xal",
+        "aliases": [
+          "xaligo",
+          "Xaligo",
+          "xal"
+        ],
+        "extensions": [
+          ".xal"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "xal",
+        "scopeName": "text.xml.xaligo",
+        "path": "./syntaxes/xal.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "xaligo.openPreview",
+        "title": "Open Preview",
+        "category": "xaligo"
+      },
+      {
+        "command": "xaligo.preview.zoomIn",
+        "title": "Zoom In",
+        "category": "xaligo",
+        "icon": "$(zoom-in)"
+      },
+      {
+        "command": "xaligo.preview.zoomOut",
+        "title": "Zoom Out",
+        "category": "xaligo",
+        "icon": "$(zoom-out)"
+      },
+      {
+        "command": "xaligo.preview.resetZoom",
+        "title": "Reset Zoom",
+        "category": "xaligo",
+        "icon": "$(screen-normal)"
+      },
+      {
+        "command": "xaligo.preview.resetView",
+        "title": "Reset View",
+        "category": "xaligo",
+        "icon": "$(home)"
+      },
+      {
+        "command": "xaligo.preview.close",
+        "title": "Close Preview",
+        "category": "xaligo",
+        "icon": "$(close)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "xaligo.openPreview",
+          "when": "resourceLangId == xal",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "xaligo.openPreview",
+          "when": "resourceLangId == xal",
+          "group": "navigation"
+        }
+      ],
+      "webview/title": [
+        {
+          "command": "xaligo.preview.zoomOut",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "xaligo.preview.resetZoom",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "xaligo.preview.zoomIn",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@3"
+        },
+        {
+          "command": "xaligo.preview.resetView",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@4"
+        },
+        {
+          "command": "xaligo.preview.close",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@5"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.8",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.32.0",
+    "typescript": "^5.5.2",
+    "vite": "^5.3.1"
+  },
+  "dependencies": {
+    "@xaligo/xaligo": "^0.1.3"
+  }
+}

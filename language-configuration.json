@@ -1,0 +1,68 @@
+{
+  "comments": {
+    "blockComment": [
+      "<!--",
+      "-->"
+    ]
+  },
+  "brackets": [
+    [
+      "<",
+      ">"
+    ],
+    [
+      "\"",
+      "\""
+    ],
+    [
+      "'",
+      "'"
+    ]
+  ],
+  "autoClosingPairs": [
+    {
+      "open": "<",
+      "close": ">"
+    },
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "'",
+      "close": "'",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    }
+  ],
+  "surroundingPairs": [
+    {
+      "open": "<",
+      "close": ">"
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*<!--\\s*#?region\\b.*-->",
+      "end": "^\\s*<!--\\s*#?endregion\\b.*-->"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*<(?!(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\\b)([a-z][\\w-]*)(?=\\s|>)(?:(?!/>).)*>\\s*(?:<!--.*-->)?\\s*$",
+    "decreaseIndentPattern": "^\\s*</[a-z][\\w-]*>\\s*$"
+  }
+}

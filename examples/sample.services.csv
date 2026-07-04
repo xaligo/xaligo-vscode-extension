@@ -1,0 +1,5 @@
+# Basic sample service list - IDs must match examples/sample.xal
+# Format: id,OfficialName,Abbreviation,Summary,Usage,Notes
+27,Amazon EC2,EC2,Virtual server,Application tier,
+1182,Elastic Load Balancing,ELB,Load balancing,Distribute traffic to the application tier,
+1581,Amazon VPC Internet Gateway,IGW,Internet gateway,VPC internet connectivity,
