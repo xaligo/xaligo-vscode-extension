@@ -7,6 +7,7 @@ PUBLISHING.md
 node_modules/**
 src/**
 examples/**
+images/*-source.svg
 *.vsix
 tsconfig.json
 vite.config.ts

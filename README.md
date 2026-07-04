@@ -2,7 +2,7 @@
 
 VS Code language support and SVG preview for the xaligo `.xal` diagram DSL.
 
-![xaligo SVG toolkit preview](images/xaligo-svg-toolkit-preview.png)
+![xaligo logo](images/xaligo-readme-logo.png)
 
 ## Features
 

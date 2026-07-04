@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 941" role="img" aria-labelledby="title desc">
+  <title id="title">xaligo logo</title>
+  <desc id="desc">Xaligo icon and wordmark on a white background.</desc>
+  <defs>
+    <linearGradient id="cyan" x1="330" y1="275" x2="720" y2="660" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#08b8ea"/>
+      <stop offset="1" stop-color="#0097d9"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="370" y1="280" x2="860" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#052d6e"/>
+      <stop offset="1" stop-color="#001f55"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="620" y1="535" x2="860" y2="805" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#04b79f"/>
+      <stop offset="1" stop-color="#00a68f"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#dbe7f3" flood-opacity="0.65"/>
+    </filter>
+  </defs>
+
+  <rect width="1680" height="941" fill="#ffffff"/>
+
+  <g transform="translate(185 209) scale(0.52)" filter="url(#soft-shadow)">
+    <g fill="url(#cyan)">
+      <path d="M116 414c0-8.8 7.2-16 16-16h192l26 26H132c-8.8 0-16-7.2-16-16z"/>
+      <path d="M182 482c0-8.8 7.2-16 16-16h184l26 26H198c-8.8 0-16-7.2-16-16z"/>
+      <path d="M248 548c0-8.8 7.2-16 16-16h129l-26 26H264c-8.8 0-16-7.2-16-16z"/>
+    </g>
+    <path fill="url(#cyan)" d="M212 200h190l130 173-96 121L212 200z"/>
+    <path fill="url(#navy)" d="M680 200h184L646 490 554 374 680 200z"/>
+    <path fill="url(#navy)" d="M438 526 212 806h200l58-76 70 76-82-148v-108l-20-24z"/>
+    <path fill="url(#teal)" d="M642 526 862 806H662l-58-76-64 76 84-148V550l18-24z"/>
+    <path fill="url(#cyan)" d="M540 392 638 516l-30 36v86l-54-80h-28l-54 80v-86l-30-36 98-124z"/>
+    <path fill="#fff" d="M540 558 604 652 540 806 476 652 540 558z"/>
+    <g fill="url(#cyan)">
+      <circle cx="540" cy="626" r="19"/>
+      <rect x="534" y="642" width="12" height="164" rx="6"/>
+    </g>
+  </g>
+
+  <g filter="url(#soft-shadow)">
+    <text x="695" y="535"
+          fill="#08b8ea"
+          font-family="Avenir Next, Nunito Sans, Arial Rounded MT Bold, Arial, sans-serif"
+          font-size="220"
+          font-weight="800"
+          letter-spacing="0">x</text>
+    <text x="855" y="535"
+          fill="#052d6e"
+          font-family="Avenir Next, Nunito Sans, Arial Rounded MT Bold, Arial, sans-serif"
+          font-size="220"
+          font-weight="800"
+          letter-spacing="0">aligo</text>
+  </g>
+</svg>

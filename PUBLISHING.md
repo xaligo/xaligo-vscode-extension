@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- A Visual Studio Marketplace publisher named `ryo-arima`.
+- A Visual Studio Marketplace publisher named `xaligo`.
 - A Personal Access Token with Marketplace publishing permission.
 - The extension version in `package.json` updated for the release.
 - A repository secret named `VSCE_PAT` containing the Marketplace token.
@@ -16,6 +16,9 @@ npm run package
 ```
 
 Inspect the generated `.vsix` file list in the `vsce package` output before publishing.
+
+The `.github/workflows/ci.yml` workflow runs the same typecheck and VSIX
+packaging checks on pushes and pull requests targeting `main`.
 
 ## Publish with GitHub Actions
 
@@ -43,7 +46,7 @@ The workflow:
 ## Publish locally
 
 ```bash
-npx vsce login ryo-arima
+npx vsce login xaligo
 npx vsce publish
 ```
 
