@@ -2,17 +2,17 @@
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
   "description": "VS Code language support for the xaligo .xal diagram DSL.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ryo-arima/xaligo-vscode-extension.git"
+    "url": "https://github.com/xaligo/xaligo-vscode-extension.git"
   },
-  "homepage": "https://github.com/ryo-arima/xaligo-vscode-extension#readme",
+  "homepage": "https://github.com/xaligo/xaligo-vscode-extension#readme",
   "bugs": {
-    "url": "https://github.com/ryo-arima/xaligo-vscode-extension/issues"
+    "url": "https://github.com/xaligo/xaligo-vscode-extension/issues"
   },
   "qna": false,
   "galleryBanner": {
@@ -41,6 +41,9 @@
     "onCommand:xaligo.preview.resetZoom",
     "onCommand:xaligo.preview.resetView",
     "onCommand:xaligo.preview.close",
+    "onCommand:xaligo.exportSvg",
+    "onCommand:xaligo.exportPptx",
+    "onCommand:xaligo.exportExcalidraw",
     "onCommand:xaligo.selectFileIconTheme"
   ],
   "main": "./dist/extension.js",
@@ -114,6 +117,24 @@
         "icon": "$(close)"
       },
       {
+        "command": "xaligo.exportSvg",
+        "title": "Export as SVG",
+        "category": "xaligo",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "xaligo.exportPptx",
+        "title": "Export as PPTX",
+        "category": "xaligo",
+        "icon": "$(file-media)"
+      },
+      {
+        "command": "xaligo.exportExcalidraw",
+        "title": "Export as Excalidraw",
+        "category": "xaligo",
+        "icon": "$(json)"
+      },
+      {
         "command": "xaligo.selectFileIconTheme",
         "title": "Select File Icon Theme",
         "category": "xaligo",
@@ -126,6 +147,21 @@
           "command": "xaligo.openPreview",
           "when": "resourceLangId == xal",
           "group": "navigation"
+        },
+        {
+          "command": "xaligo.exportSvg",
+          "when": "resourceLangId == xal",
+          "group": "navigation@2"
+        },
+        {
+          "command": "xaligo.exportPptx",
+          "when": "resourceLangId == xal",
+          "group": "navigation@3"
+        },
+        {
+          "command": "xaligo.exportExcalidraw",
+          "when": "resourceLangId == xal",
+          "group": "navigation@4"
         }
       ],
       "editor/context": [
@@ -133,6 +169,21 @@
           "command": "xaligo.openPreview",
           "when": "resourceLangId == xal",
           "group": "navigation"
+        },
+        {
+          "command": "xaligo.exportSvg",
+          "when": "resourceLangId == xal",
+          "group": "navigation@2"
+        },
+        {
+          "command": "xaligo.exportPptx",
+          "when": "resourceLangId == xal",
+          "group": "navigation@3"
+        },
+        {
+          "command": "xaligo.exportExcalidraw",
+          "when": "resourceLangId == xal",
+          "group": "navigation@4"
         }
       ],
       "webview/title": [

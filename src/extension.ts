@@ -13,6 +13,9 @@ const previewZoomOutCommand = "xaligo.preview.zoomOut";
 const previewResetZoomCommand = "xaligo.preview.resetZoom";
 const previewResetViewCommand = "xaligo.preview.resetView";
 const previewCloseCommand = "xaligo.preview.close";
+const exportSvgCommand = "xaligo.exportSvg";
+const exportPptxCommand = "xaligo.exportPptx";
+const exportExcalidrawCommand = "xaligo.exportExcalidraw";
 const selectFileIconThemeCommand = "xaligo.selectFileIconTheme";
 const fileIconThemePromptStateKey = "xaligo.fileIconThemePromptDismissed";
 const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
@@ -50,7 +53,8 @@ const tagColors: Record<string, string> = {
 
 export function activate(context: vscode.ExtensionContext): void {
   const installPromise = ensureXaligoPackageInstalled(context);
-  const previewController = new XaligoPreviewController(context, installPromise);
+  const renderer = new XaligoRenderer(context, installPromise);
+  const previewController = new XaligoPreviewController(context, renderer);
 
   context.subscriptions.push(new XaligoTagColorController());
   context.subscriptions.push(previewController);
@@ -71,6 +75,15 @@ export function activate(context: vscode.ExtensionContext): void {
   }));
   context.subscriptions.push(vscode.commands.registerCommand(previewCloseCommand, () => {
     previewController.closePreview();
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand(exportSvgCommand, () => {
+    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.svg);
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand(exportPptxCommand, () => {
+    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pptx);
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand(exportExcalidrawCommand, () => {
+    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excalidraw);
   }));
   context.subscriptions.push(vscode.commands.registerCommand(selectFileIconThemeCommand, () => {
     void vscode.commands.executeCommand("workbench.action.selectIconTheme");
@@ -242,7 +255,7 @@ class XaligoPreviewController implements vscode.Disposable {
 
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly installPromise: Promise<void>
+    private readonly renderer: XaligoRenderer
   ) {
     this.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
       if (this.sourceUri?.toString() === document.uri.toString()) {
@@ -345,17 +358,9 @@ class XaligoPreviewController implements vscode.Disposable {
     }
 
     try {
-      await this.installPromise;
-      const packageRoot = await this.findXaligoPackageRoot();
-      const binary = xaligoNativeBinaryPath(packageRoot);
-      if (!await exists(binary)) {
-        throw new Error(`xaligo native binary was not found: ${binary}`);
-      }
-
       const outputPath = await this.previewOutputPath(document.uri);
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      const servicesPath = await findNearestServicesCsv(document.uri.fsPath);
-      await runXaligoRender(binary, packageRoot, document.uri.fsPath, outputPath, servicesPath);
+      await this.renderer.render(document.uri.fsPath, outputPath, "svg");
       this.lastContent = await fs.readFile(outputPath, "utf8");
       this.lastError = undefined;
       this.updatePanelHtml();
@@ -378,6 +383,70 @@ class XaligoPreviewController implements vscode.Disposable {
     });
   }
 
+  private async previewOutputPath(uri: vscode.Uri): Promise<string> {
+    const digest = crypto.createHash("sha256").update(uri.toString()).digest("hex").slice(0, 16);
+    const outputDir = path.join(this.context.globalStorageUri.fsPath, "preview");
+    return path.join(outputDir, `${digest}.svg`);
+  }
+}
+
+interface PreviewMessage {
+  command?: string;
+  zoom?: number;
+}
+
+type XaligoRenderFormat = "svg" | "pptx" | "excalidraw";
+
+interface ExportFormat {
+  renderFormat: XaligoRenderFormat;
+  extension: string;
+  label: string;
+  title: string;
+}
+
+const exportFormats: Record<"svg" | "pptx" | "excalidraw", ExportFormat> = {
+  svg: {
+    renderFormat: "svg",
+    extension: "svg",
+    label: "SVG",
+    title: "Export xaligo SVG"
+  },
+  pptx: {
+    renderFormat: "pptx",
+    extension: "pptx",
+    label: "PowerPoint",
+    title: "Export xaligo PPTX"
+  },
+  excalidraw: {
+    renderFormat: "excalidraw",
+    extension: "excalidraw",
+    label: "Excalidraw",
+    title: "Export xaligo Excalidraw"
+  }
+};
+
+class XaligoRenderer {
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly installPromise: Promise<void>
+  ) {}
+
+  async render(sourcePath: string, outputPath: string, format: XaligoRenderFormat): Promise<void> {
+    await this.installPromise;
+    const packageRoot = await this.findXaligoPackageRoot();
+    const binary = xaligoNativeBinaryPath(packageRoot);
+    if (!await exists(binary)) {
+      throw new Error(`xaligo native binary was not found: ${binary}`);
+    }
+
+    const servicesPath = await findNearestServicesCsv(sourcePath);
+    await runXaligoRender(binary, packageRoot, sourcePath, outputPath, format, servicesPath);
+  }
+
+  async export(sourcePath: string, outputPath: string, exportFormat: ExportFormat): Promise<void> {
+    await this.render(sourcePath, outputPath, exportFormat.renderFormat);
+  }
+
   private async findXaligoPackageRoot(): Promise<string> {
     const installedRoot = path.join(
       this.context.globalStorageUri.fsPath,
@@ -397,17 +466,60 @@ class XaligoPreviewController implements vscode.Disposable {
 
     throw new Error(`${xaligoPackageName} is not installed yet.`);
   }
-
-  private async previewOutputPath(uri: vscode.Uri): Promise<string> {
-    const digest = crypto.createHash("sha256").update(uri.toString()).digest("hex").slice(0, 16);
-    const outputDir = path.join(this.context.globalStorageUri.fsPath, "preview");
-    return path.join(outputDir, `${digest}.svg`);
-  }
 }
 
-interface PreviewMessage {
-  command?: string;
-  zoom?: number;
+async function exportDocument(
+  renderer: XaligoRenderer,
+  document: vscode.TextDocument | undefined,
+  exportFormat: ExportFormat
+): Promise<void> {
+  if (!document || document.languageId !== "xal") {
+    vscode.window.showWarningMessage(`Open a .xal file before exporting ${exportFormat.label}.`);
+    return;
+  }
+
+  if (document.uri.scheme !== "file") {
+    vscode.window.showWarningMessage(`Save the .xal file to disk before exporting ${exportFormat.label}.`);
+    return;
+  }
+
+  if (document.isDirty && !await document.save()) {
+    vscode.window.showWarningMessage(`Save the .xal file before exporting ${exportFormat.label}.`);
+    return;
+  }
+
+  const sourcePath = document.uri.fsPath;
+  const defaultUri = vscode.Uri.file(replaceExtension(sourcePath, exportFormat.extension));
+  const outputUri = await vscode.window.showSaveDialog({
+    defaultUri,
+    filters: {
+      [exportFormat.label]: [exportFormat.extension]
+    },
+    saveLabel: "Export",
+    title: exportFormat.title
+  });
+
+  if (!outputUri) {
+    return;
+  }
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Exporting ${exportFormat.label}`,
+      cancellable: false
+    },
+    async () => {
+      try {
+        await fs.mkdir(path.dirname(outputUri.fsPath), { recursive: true });
+        await renderer.export(sourcePath, outputUri.fsPath, exportFormat);
+        vscode.window.showInformationMessage(`Exported ${exportFormat.label}: ${outputUri.fsPath}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`Failed to export ${exportFormat.label}: ${message}`);
+      }
+    }
+  );
 }
 
 function xaligoNativeBinaryPath(packageRoot: string): string {
@@ -422,10 +534,11 @@ function runXaligoRender(
   packageRoot: string,
   sourcePath: string,
   outputPath: string,
+  format: XaligoRenderFormat,
   servicesPath?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const args = ["render", sourcePath, "--format", "svg", "-o", outputPath];
+    const args = ["render", sourcePath, "--format", format, "-o", outputPath];
     if (servicesPath) {
       args.push("--services", servicesPath);
     }
@@ -450,6 +563,11 @@ function runXaligoRender(
       }
     );
   });
+}
+
+function replaceExtension(filePath: string, extension: string): string {
+  const parsed = path.parse(filePath);
+  return path.join(parsed.dir, `${parsed.name}.${extension}`);
 }
 
 async function findNearestServicesCsv(sourcePath: string): Promise<string | undefined> {

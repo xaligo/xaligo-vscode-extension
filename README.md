@@ -13,11 +13,14 @@ VS Code language support and SVG preview for the xaligo `.xal` diagram DSL.
 - Adds comment, bracket, auto-closing, folding, and indentation behavior for `.xal` files.
 - Opens an SVG preview with zoom, fit-width, reset, and close controls.
 - Refreshes the preview when the source file is saved.
+- Exports `.xal` diagrams to SVG, PPTX, and Excalidraw files.
 - Uses `<name>.services.csv` or the nearest `services.csv` for preview labels and legends when present.
 
 ## Usage
 
 Open a `.xal` file, then run **xaligo: Open Preview** from the command palette or the editor title/context menu.
+
+To export the current `.xal` file, run **xaligo: Export as SVG**, **xaligo: Export as PPTX**, or **xaligo: Export as Excalidraw** from the command palette or editor menu, then choose the output file path.
 
 If the `.xal` icon does not appear with your current file icon theme, run **xaligo: Select File Icon Theme** or **Preferences: File Icon Theme**, then select **xaligo**.
 

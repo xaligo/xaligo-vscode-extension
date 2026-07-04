@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.4
+
+- Added SVG, PPTX, and Excalidraw export commands for `.xal` files.
+- Updated Marketplace repository links to the `xaligo/xaligo-vscode-extension` repository.
+
 ## 0.0.2
 
 - Added an original-color `.xal` file icon generated from SVG and bundled file icon theme.
