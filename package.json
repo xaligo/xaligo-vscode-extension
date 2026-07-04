@@ -40,7 +40,8 @@
     "onCommand:xaligo.preview.zoomOut",
     "onCommand:xaligo.preview.resetZoom",
     "onCommand:xaligo.preview.resetView",
-    "onCommand:xaligo.preview.close"
+    "onCommand:xaligo.preview.close",
+    "onCommand:xaligo.selectFileIconTheme"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -55,7 +56,18 @@
         "extensions": [
           ".xal"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./assets/xaligo-file-icon.png",
+          "dark": "./assets/xaligo-file-icon.png"
+        }
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "xaligo-icons",
+        "label": "xaligo",
+        "path": "./fileicons/xaligo-icon-theme.json"
       }
     ],
     "grammars": [
@@ -100,6 +112,12 @@
         "title": "Close Preview",
         "category": "xaligo",
         "icon": "$(close)"
+      },
+      {
+        "command": "xaligo.selectFileIconTheme",
+        "title": "Select File Icon Theme",
+        "category": "xaligo",
+        "icon": "$(symbol-color)"
       }
     ],
     "menus": {

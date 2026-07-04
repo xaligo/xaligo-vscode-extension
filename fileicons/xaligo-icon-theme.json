@@ -1,0 +1,29 @@
+{
+  "iconDefinitions": {
+    "_xaligo_file": {
+      "iconPath": "../assets/xaligo-file-icon.png"
+    }
+  },
+  "fileExtensions": {
+    "xal": "_xaligo_file"
+  },
+  "languageIds": {
+    "xal": "_xaligo_file"
+  },
+  "light": {
+    "fileExtensions": {
+      "xal": "_xaligo_file"
+    },
+    "languageIds": {
+      "xal": "_xaligo_file"
+    }
+  },
+  "highContrast": {
+    "fileExtensions": {
+      "xal": "_xaligo_file"
+    },
+    "languageIds": {
+      "xal": "_xaligo_file"
+    }
+  }
+}

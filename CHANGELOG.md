@@ -2,6 +2,8 @@
 
 ## 0.0.2
 
+- Added an original-color `.xal` file icon generated from SVG and bundled file icon theme.
+- Added a command and one-time hint for selecting the bundled file icon theme when the active theme overrides `.xal` icons.
 - Bumped the Marketplace package version for the next publish.
 
 ## 0.0.1

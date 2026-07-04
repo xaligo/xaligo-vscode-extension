@@ -7,6 +7,7 @@ VS Code language support and SVG preview for the xaligo `.xal` diagram DSL.
 ## Features
 
 - Registers `.xal` files as the `xal` language.
+- Adds an original-color file icon generated from SVG for `.xal` files, with a bundled file icon theme for themes that override language icons.
 - Provides syntax highlighting for xaligo tags, attributes, strings, comments, XML entities, spacing classes, and connection shorthands.
 - Colors common xaligo and AWS group tags in the editor for faster scanning.
 - Adds comment, bracket, auto-closing, folding, and indentation behavior for `.xal` files.
@@ -17,6 +18,8 @@ VS Code language support and SVG preview for the xaligo `.xal` diagram DSL.
 ## Usage
 
 Open a `.xal` file, then run **xaligo: Open Preview** from the command palette or the editor title/context menu.
+
+If the `.xal` icon does not appear with your current file icon theme, run **xaligo: Select File Icon Theme** or **Preferences: File Icon Theme**, then select **xaligo**.
 
 The extension installs the `@xaligo/xaligo` renderer into VS Code global storage on first activation. Internet access is required for that first install.
 

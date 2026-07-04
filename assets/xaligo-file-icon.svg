@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="xaligo-file-icon-title xaligo-file-icon-desc">
+  <title id="xaligo-file-icon-title">xaligo file icon</title>
+  <desc id="xaligo-file-icon-desc">Original-color xaligo file icon with a transparent background.</desc>
+  <defs>
+    <linearGradient id="xaligo-cyan" x1="210" y1="200" x2="640" y2="650" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#27d8ff"/>
+      <stop offset="1" stop-color="#08b7ec"/>
+    </linearGradient>
+    <linearGradient id="xaligo-navy" x1="260" y1="250" x2="850" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#006dff"/>
+      <stop offset="1" stop-color="#0040d8"/>
+    </linearGradient>
+    <linearGradient id="xaligo-teal" x1="600" y1="520" x2="860" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22f0cf"/>
+      <stop offset="1" stop-color="#08d9b2"/>
+    </linearGradient>
+    <mask id="pen-cutout" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="#ffffff"/>
+      <path fill="#000000" d="M540 558 604 652 540 806 476 652 540 558z"/>
+    </mask>
+  </defs>
+
+  <g transform="translate(512 512) scale(0.82) translate(-512 -512)">
+    <g mask="url(#pen-cutout)">
+      <g fill="url(#xaligo-cyan)">
+        <path d="M116 414c0-8.8 7.2-16 16-16h192l26 26H132c-8.8 0-16-7.2-16-16z"/>
+        <path d="M182 482c0-8.8 7.2-16 16-16h184l26 26H198c-8.8 0-16-7.2-16-16z"/>
+        <path d="M248 548c0-8.8 7.2-16 16-16h129l-26 26H264c-8.8 0-16-7.2-16-16z"/>
+        <path d="M212 200h190l130 173-96 121L212 200z"/>
+        <path d="M540 392 638 516l-30 36v86l-54-80h-28l-54 80v-86l-30-36 98-124z"/>
+      </g>
+      <path fill="url(#xaligo-navy)" d="M680 200h184L646 490 554 374 680 200z"/>
+      <path fill="url(#xaligo-navy)" d="M438 526 212 806h200l58-76 70 76-82-148v-108l-20-24z"/>
+      <path fill="url(#xaligo-teal)" d="M642 526 862 806H662l-58-76-64 76 84-148V550l18-24z"/>
+    </g>
+    <g fill="url(#xaligo-cyan)">
+      <circle cx="540" cy="626" r="19"/>
+      <rect x="534" y="642" width="12" height="164" rx="6"/>
+    </g>
+  </g>
+</svg>

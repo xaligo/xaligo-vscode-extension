@@ -13,6 +13,8 @@ const previewZoomOutCommand = "xaligo.preview.zoomOut";
 const previewResetZoomCommand = "xaligo.preview.resetZoom";
 const previewResetViewCommand = "xaligo.preview.resetView";
 const previewCloseCommand = "xaligo.preview.close";
+const selectFileIconThemeCommand = "xaligo.selectFileIconTheme";
+const fileIconThemePromptStateKey = "xaligo.fileIconThemePromptDismissed";
 const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
 const commentPattern = /<!--[\s\S]*?-->/g;
 
@@ -70,6 +72,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.commands.registerCommand(previewCloseCommand, () => {
     previewController.closePreview();
   }));
+  context.subscriptions.push(vscode.commands.registerCommand(selectFileIconThemeCommand, () => {
+    void vscode.commands.executeCommand("workbench.action.selectIconTheme");
+  }));
+
+  void showFileIconThemeHint(context);
 }
 
 export function deactivate(): void {}
@@ -199,6 +206,30 @@ function stableHash(value: string): number {
   }
 
   return hash;
+}
+
+async function showFileIconThemeHint(context: vscode.ExtensionContext): Promise<void> {
+  if (context.globalState.get<boolean>(fileIconThemePromptStateKey)) {
+    return;
+  }
+
+  const activeIconTheme = vscode.workspace.getConfiguration("workbench").get<string>("iconTheme");
+  if (activeIconTheme === "xaligo-icons") {
+    await context.globalState.update(fileIconThemePromptStateKey, true);
+    return;
+  }
+
+  const selection = await vscode.window.showInformationMessage(
+    "xaligo includes a .xal file icon. Some file icon themes override language icons, so select the bundled xaligo theme if the icon does not appear.",
+    "Select Theme",
+    "Not Now"
+  );
+
+  if (selection === "Select Theme") {
+    await vscode.commands.executeCommand("workbench.action.selectIconTheme");
+  }
+
+  await context.globalState.update(fileIconThemePromptStateKey, true);
 }
 
 class XaligoPreviewController implements vscode.Disposable {
