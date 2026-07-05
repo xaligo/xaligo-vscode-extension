@@ -5,7 +5,8 @@ import path from "node:path";
 import * as vscode from "vscode";
 
 const xaligoPackageName = "@xaligo/xaligo";
-const xaligoPackageSpec = `${xaligoPackageName}@^0.1.3`;
+const xaligoPackageVersionRange = "^0.1.7";
+const xaligoPackageSpec = `${xaligoPackageName}@${xaligoPackageVersionRange}`;
 const installStateKey = "xaligo.packageInstallSpec";
 const previewCommand = "xaligo.openPreview";
 const previewZoomInCommand = "xaligo.preview.zoomIn";
@@ -797,7 +798,7 @@ async function ensureXaligoPackageInstalled(context: vscode.ExtensionContext): P
     `${JSON.stringify({
       private: true,
       dependencies: {
-        [xaligoPackageName]: "^0.1.3"
+        [xaligoPackageName]: xaligoPackageVersionRange
       }
     }, null, 2)}\n`,
     "utf8"
