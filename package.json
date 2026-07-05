@@ -230,6 +230,6 @@
     "vite": "^5.3.1"
   },
   "dependencies": {
-    "@xaligo/xaligo": "^0.1.7"
+    "@xaligo/xaligo": "^0.1.10"
   }
 }
