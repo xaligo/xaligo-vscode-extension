@@ -5,7 +5,7 @@ import path from "node:path";
 import * as vscode from "vscode";
 
 const xaligoPackageName = "@xaligo/xaligo";
-const xaligoPackageVersionRange = "^0.1.11";
+const xaligoPackageVersionRange = "^0.1.13";
 const xaligoPackageSpec = `${xaligoPackageName}@${xaligoPackageVersionRange}`;
 const installStateKey = "xaligo.packageInstallSpec";
 const previewCommand = "xaligo.openPreview";

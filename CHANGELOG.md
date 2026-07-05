@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9
+
+- Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.13`.
+
 ## 0.0.8
 
 - Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.11`.
