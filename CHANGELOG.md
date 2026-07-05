@@ -1,8 +1,12 @@
 # Changelog
 
-## 0.0.6
+## 0.0.7
 
 - Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.10`.
+
+## 0.0.6
+
+- Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.7`.
 - Fixed the global storage installer so VS Code installs the same renderer version range as the extension package.
 
 ## 0.0.4
