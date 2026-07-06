@@ -4,7 +4,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
 
-const xaligoPackageName = "@xaligo/xaligo";
 const previewCommand = "xaligo.openPreview";
 const previewZoomInCommand = "xaligo.preview.zoomIn";
 const previewZoomOutCommand = "xaligo.preview.zoomOut";
@@ -428,8 +427,9 @@ class XaligoRenderer {
   ) {}
 
   async render(sourcePath: string, outputPath: string, format: XaligoRenderFormat): Promise<void> {
-    const packageRoot = await this.findXaligoPackageRoot();
-    const binary = xaligoNativeBinaryPath(packageRoot);
+    const config = await readExtensionXaligoConfig(this.context.extensionPath);
+    const packageRoot = await this.findXaligoPackageRoot(config);
+    const binary = xaligoNativeBinaryPath(packageRoot, config);
     if (!await exists(binary)) {
       throw new Error(`xaligo native binary was not found: ${binary}`);
     }
@@ -442,13 +442,13 @@ class XaligoRenderer {
     await this.render(sourcePath, outputPath, exportFormat.renderFormat);
   }
 
-  private async findXaligoPackageRoot(): Promise<string> {
-    const bundledRoot = path.join(this.context.extensionPath, "node_modules", "@xaligo", "xaligo");
+  private async findXaligoPackageRoot(config: ExtensionXaligoConfig): Promise<string> {
+    const bundledRoot = path.resolve(this.context.extensionPath, config.packageRoot);
     if (await exists(path.join(bundledRoot, "package.json"))) {
       return bundledRoot;
     }
 
-    throw new Error(`${xaligoPackageName} is missing from the extension package.`);
+    throw new Error(`${config.packageName} is missing from the extension package.`);
   }
 }
 
@@ -506,12 +506,37 @@ async function exportDocument(
   );
 }
 
-function xaligoNativeBinaryPath(packageRoot: string): string {
+interface ExtensionPackageJson {
+  xaligo?: Partial<ExtensionXaligoConfig>;
+}
+
+interface ExtensionXaligoConfig {
+  packageName: string;
+  packageRoot: string;
+  nativeBinaryDir: string;
+  nativeBinaryPlatformNames: Record<string, string>;
+  nativeBinaryArchNames: Record<string, string>;
+}
+
+async function readExtensionXaligoConfig(extensionPath: string): Promise<ExtensionXaligoConfig> {
+  const manifestPath = path.join(extensionPath, "package.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as ExtensionPackageJson;
+  const config = manifest.xaligo ?? {};
+  return {
+    packageName: config.packageName ?? "@xaligo/xaligo",
+    packageRoot: config.packageRoot ?? path.join("node_modules", "@xaligo", "xaligo"),
+    nativeBinaryDir: config.nativeBinaryDir ?? path.join("bin", "native"),
+    nativeBinaryPlatformNames: config.nativeBinaryPlatformNames ?? { win32: "windows" },
+    nativeBinaryArchNames: config.nativeBinaryArchNames ?? { x64: "amd64" }
+  };
+}
+
+function xaligoNativeBinaryPath(packageRoot: string, config: ExtensionXaligoConfig): string {
   const platform = process.platform;
-  const arch = process.arch === "x64" ? "amd64" : process.arch;
-  const binaryPlatform = platform === "win32" ? "windows" : platform;
+  const arch = config.nativeBinaryArchNames[process.arch] ?? process.arch;
+  const binaryPlatform = config.nativeBinaryPlatformNames[platform] ?? platform;
   const executable = platform === "win32" ? `xaligo-${binaryPlatform}-${arch}.exe` : `xaligo-${binaryPlatform}-${arch}`;
-  return path.join(packageRoot, "bin", "native", executable);
+  return path.join(packageRoot, config.nativeBinaryDir, executable);
 }
 
 function runXaligoRender(

@@ -2,7 +2,7 @@
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
   "description": "VS Code language support for the xaligo .xal diagram DSL.",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
@@ -15,6 +15,43 @@
     "url": "https://github.com/xaligo/xaligo-vscode-extension/issues"
   },
   "qna": false,
+  "xaligo": {
+    "packageName": "@xaligo/xaligo",
+    "packageRoot": "node_modules/@xaligo/xaligo",
+    "nativeBinaryDir": "bin/native",
+    "nativeBinaryPlatformNames": {
+      "win32": "windows"
+    },
+    "nativeBinaryArchNames": {
+      "x64": "amd64"
+    },
+    "vsixNativeBinaryTargets": [
+      {
+        "platform": "darwin",
+        "arch": "x64"
+      },
+      {
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      {
+        "platform": "linux",
+        "arch": "x64"
+      },
+      {
+        "platform": "linux",
+        "arch": "arm64"
+      },
+      {
+        "platform": "win32",
+        "arch": "x64"
+      },
+      {
+        "platform": "win32",
+        "arch": "arm64"
+      }
+    ]
+  },
   "galleryBanner": {
     "color": "#0b2f73",
     "theme": "dark"

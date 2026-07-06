@@ -6,18 +6,38 @@ const https = require('node:https');
 const path = require('node:path');
 
 const packageRoot = path.resolve(__dirname, '..');
-const xaligoRoot = path.join(packageRoot, 'node_modules', '@xaligo', 'xaligo');
+const extensionPackageJsonPath = path.join(packageRoot, 'package.json');
+const extensionPackageJson = require(extensionPackageJsonPath);
+const config = extensionPackageJson.xaligo || {};
+const packageName = config.packageName || '@xaligo/xaligo';
+const packageRelativeRoot = config.packageRoot || path.join('node_modules', '@xaligo', 'xaligo');
+const nativeBinaryRelativeDir = config.nativeBinaryDir || path.join('bin', 'native');
+const xaligoRoot = path.resolve(packageRoot, packageRelativeRoot);
 const xaligoPackageJsonPath = path.join(xaligoRoot, 'package.json');
-const nativeDir = path.join(xaligoRoot, 'bin', 'native');
-const targets = [
-  'xaligo-windows-amd64.exe',
-  'xaligo-windows-arm64.exe',
-];
+const nativeDir = path.resolve(xaligoRoot, nativeBinaryRelativeDir);
+const targets = config.vsixNativeBinaryTargets || [];
+const platformNames = config.nativeBinaryPlatformNames || {};
+const archNames = config.nativeBinaryArchNames || {};
 
 function releaseTag(packageJson) {
   if (process.env.XALIGO_NPM_RELEASE_TAG) return process.env.XALIGO_NPM_RELEASE_TAG;
   if (packageJson.xaligo && packageJson.xaligo.releaseTag) return packageJson.xaligo.releaseTag;
   return `v${String(packageJson.version).split('+')[0]}`;
+}
+
+function binaryPlatform(platform) {
+  return platformNames[platform] || platform;
+}
+
+function binaryArch(arch) {
+  return archNames[arch] || arch;
+}
+
+function binaryName(target) {
+  const platform = binaryPlatform(target.platform);
+  const arch = binaryArch(target.arch);
+  const suffix = target.platform === 'win32' ? '.exe' : '';
+  return `xaligo-${platform}-${arch}${suffix}`;
 }
 
 function download(url, destination, redirects = 0) {
@@ -50,7 +70,7 @@ function download(url, destination, redirects = 0) {
 
 async function main() {
   if (!fs.existsSync(xaligoPackageJsonPath)) {
-    throw new Error('@xaligo/xaligo is not installed. Run npm install before packaging.');
+    throw new Error(`${packageName} is not installed. Run npm install before packaging.`);
   }
 
   const packageJson = require(xaligoPackageJsonPath);
@@ -58,11 +78,12 @@ async function main() {
   fs.mkdirSync(nativeDir, { recursive: true });
 
   for (const target of targets) {
-    const destination = path.join(nativeDir, target);
+    const name = binaryName(target);
+    const destination = path.join(nativeDir, name);
     if (fs.existsSync(destination)) continue;
 
-    const url = `https://github.com/xaligo/xaligo/releases/download/${tag}/${target}`;
-    console.log(`Downloading ${target} from ${tag}`);
+    const url = `https://github.com/xaligo/xaligo/releases/download/${tag}/${name}`;
+    console.log(`Downloading ${name} from ${tag}`);
     await download(url, destination);
     fs.chmodSync(destination, 0o755);
   }
