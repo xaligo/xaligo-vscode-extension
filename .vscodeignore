@@ -4,7 +4,10 @@
 .github/**
 AGENTS.md
 PUBLISHING.md
+scripts/**
 node_modules/**
+!node_modules/@xaligo/
+!node_modules/@xaligo/xaligo/**
 src/**
 examples/**
 images/*-source.svg

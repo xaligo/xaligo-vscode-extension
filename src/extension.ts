@@ -5,9 +5,6 @@ import path from "node:path";
 import * as vscode from "vscode";
 
 const xaligoPackageName = "@xaligo/xaligo";
-const xaligoPackageVersionRange = "^0.1.13";
-const xaligoPackageSpec = `${xaligoPackageName}@${xaligoPackageVersionRange}`;
-const installStateKey = "xaligo.packageInstallSpec";
 const previewCommand = "xaligo.openPreview";
 const previewZoomInCommand = "xaligo.preview.zoomIn";
 const previewZoomOutCommand = "xaligo.preview.zoomOut";
@@ -53,8 +50,7 @@ const tagColors: Record<string, string> = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
-  const installPromise = ensureXaligoPackageInstalled(context);
-  const renderer = new XaligoRenderer(context, installPromise);
+  const renderer = new XaligoRenderer(context);
   const previewController = new XaligoPreviewController(context, renderer);
 
   context.subscriptions.push(new XaligoTagColorController());
@@ -428,12 +424,10 @@ const exportFormats: Record<"svg" | "pptx" | "excalidraw", ExportFormat> = {
 
 class XaligoRenderer {
   constructor(
-    private readonly context: vscode.ExtensionContext,
-    private readonly installPromise: Promise<void>
+    private readonly context: vscode.ExtensionContext
   ) {}
 
   async render(sourcePath: string, outputPath: string, format: XaligoRenderFormat): Promise<void> {
-    await this.installPromise;
     const packageRoot = await this.findXaligoPackageRoot();
     const binary = xaligoNativeBinaryPath(packageRoot);
     if (!await exists(binary)) {
@@ -449,23 +443,12 @@ class XaligoRenderer {
   }
 
   private async findXaligoPackageRoot(): Promise<string> {
-    const installedRoot = path.join(
-      this.context.globalStorageUri.fsPath,
-      "npm",
-      "node_modules",
-      "@xaligo",
-      "xaligo"
-    );
-    if (await exists(path.join(installedRoot, "package.json"))) {
-      return installedRoot;
+    const bundledRoot = path.join(this.context.extensionPath, "node_modules", "@xaligo", "xaligo");
+    if (await exists(path.join(bundledRoot, "package.json"))) {
+      return bundledRoot;
     }
 
-    const developmentRoot = path.join(this.context.extensionPath, "node_modules", "@xaligo", "xaligo");
-    if (await exists(path.join(developmentRoot, "package.json"))) {
-      return developmentRoot;
-    }
-
-    throw new Error(`${xaligoPackageName} is not installed yet.`);
+    throw new Error(`${xaligoPackageName} is missing from the extension package.`);
   }
 }
 
@@ -526,7 +509,8 @@ async function exportDocument(
 function xaligoNativeBinaryPath(packageRoot: string): string {
   const platform = process.platform;
   const arch = process.arch === "x64" ? "amd64" : process.arch;
-  const executable = platform === "win32" ? `xaligo-${platform}-${arch}.exe` : `xaligo-${platform}-${arch}`;
+  const binaryPlatform = platform === "win32" ? "windows" : platform;
+  const executable = platform === "win32" ? `xaligo-${binaryPlatform}-${arch}.exe` : `xaligo-${binaryPlatform}-${arch}`;
   return path.join(packageRoot, "bin", "native", executable);
 }
 
@@ -783,36 +767,6 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-async function ensureXaligoPackageInstalled(context: vscode.ExtensionContext): Promise<void> {
-  const installRoot = path.join(context.globalStorageUri.fsPath, "npm");
-  const markerPath = path.join(installRoot, "node_modules", "@xaligo", "xaligo", "package.json");
-  const installedSpec = context.globalState.get<string>(installStateKey);
-
-  if (installedSpec === xaligoPackageSpec && await exists(markerPath)) {
-    return;
-  }
-
-  await fs.mkdir(installRoot, { recursive: true });
-  await fs.writeFile(
-    path.join(installRoot, "package.json"),
-    `${JSON.stringify({
-      private: true,
-      dependencies: {
-        [xaligoPackageName]: xaligoPackageVersionRange
-      }
-    }, null, 2)}\n`,
-    "utf8"
-  );
-
-  try {
-    await runNpmInstall(installRoot);
-    await context.globalState.update(installStateKey, xaligoPackageSpec);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    vscode.window.showWarningMessage(`Failed to install ${xaligoPackageName}: ${message}`);
-  }
-}
-
 async function exists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
@@ -820,24 +774,4 @@ async function exists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function runNpmInstall(cwd: string): Promise<void> {
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-
-  return new Promise((resolve, reject) => {
-    execFile(
-      npmCommand,
-      ["install", "--omit=dev", "--no-audit", "--no-fund"],
-      { cwd, timeout: 120_000 },
-      (error, _stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr.trim() || error.message));
-          return;
-        }
-
-        resolve();
-      }
-    );
-  });
 }

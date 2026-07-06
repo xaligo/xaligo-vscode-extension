@@ -219,7 +219,7 @@
     "build": "vite build",
     "watch": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "package": "vsce package",
+    "package": "node scripts/prepare-vsix-native-binaries.cjs && vsce package",
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
