@@ -17,7 +17,7 @@ const grammar = JSON.parse(readFileSync(
 
 function isMatchedByNamedPattern(repositoryName: string, scopeName: string, value: string): boolean {
   return grammar.repository[repositoryName].patterns.some((pattern) =>
-    pattern.name === scopeName && pattern.match !== undefined && new RegExp(pattern.match).test(value)
+    pattern.name === scopeName && pattern.match !== undefined && new RegExp(`^(?:${pattern.match})$`).test(value)
   );
 }
 
@@ -29,7 +29,7 @@ describe("latest V1 syntax highlighting", () => {
       expect(patterns.some((pattern) =>
         pattern.name !== "entity.name.tag.other.xaligo" &&
         pattern.match !== undefined &&
-        new RegExp(pattern.match).test(tag)
+        new RegExp(`^(?:${pattern.match})$`).test(tag)
       )).toBe(true);
     }
   );
