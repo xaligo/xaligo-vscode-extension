@@ -9,7 +9,7 @@ export default defineConfig({
       fileName: () => "preview.js"
     },
     outDir: "dist/webview",
-    emptyOutDir: false,
+    emptyOutDir: true,
     minify: false,
     sourcemap: true,
     target: "es2022"

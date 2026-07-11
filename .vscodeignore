@@ -11,6 +11,9 @@ node_modules/**
 src/**
 examples/**
 images/*-source.svg
-*.vsix
+test/**
 tsconfig.json
 vite.config.ts
+vite.webview.config.ts
+**/*.map
+*.vsix

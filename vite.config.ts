@@ -13,7 +13,7 @@ export default defineConfig({
       formats: ["cjs"],
       fileName: () => "extension.js"
     },
-    outDir: "dist",
+    outDir: "dist/extension",
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {

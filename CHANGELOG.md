@@ -2,7 +2,7 @@
 
 ## 0.0.13
 
-- Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.20`.
+- Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.21`.
 - Added a Preview / Diff menu bar and two-file structural diff view.
 - Added pointer-centred Ctrl/Cmd + wheel zoom and drag-to-pan interaction.
 - Added latest V1 tags, attributes, explicit `version="1"`, and valid example IDs.
