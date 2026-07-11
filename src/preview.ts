@@ -102,7 +102,7 @@ export class XaligoPreviewController implements vscode.Disposable {
     this.ensurePanel();
     this.updatePanel();
 
-    if (!await this.selectDiffFile("before")) {
+    if (!await this.selectDiffFile("before", false)) {
       return;
     }
     await this.selectDiffFile("after");
@@ -192,7 +192,7 @@ export class XaligoPreviewController implements vscode.Disposable {
     this.updatePanel();
   }
 
-  private async selectDiffFile(side: DiffSide): Promise<boolean> {
+  private async selectDiffFile(side: DiffSide, renderWhenReady = true): Promise<boolean> {
     const current = side === "before" ? this.diffBeforeUri : this.diffAfterUri;
     const other = side === "before" ? this.diffAfterUri : this.diffBeforeUri;
     const defaultSource = current ?? other ?? this.previewSourceUri;
@@ -235,7 +235,7 @@ export class XaligoPreviewController implements vscode.Disposable {
     }
     this.mode = "diff";
     this.updatePanel();
-    if (this.diffBeforeUri && this.diffAfterUri) {
+    if (renderWhenReady && this.diffBeforeUri && this.diffAfterUri) {
       await this.renderDiff();
     }
     return true;
