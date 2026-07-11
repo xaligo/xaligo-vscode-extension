@@ -13,6 +13,7 @@
 npm install
 npm run typecheck
 npm test
+npm run check:renderer
 npm run package
 ```
 
@@ -46,7 +47,7 @@ tab.
 The workflow:
 
 1. Installs dependencies with `npm ci`.
-2. Runs `npm run typecheck` and `npm test`.
+2. Runs `npm run typecheck`, `npm test`, and `npm run check:renderer`.
 3. Builds a VSIX with `npm run package -- --out xaligo-vscode-extension.vsix`.
 4. Uploads the VSIX as a workflow artifact.
 5. Publishes the VSIX with `npx vsce publish --packagePath ...`.

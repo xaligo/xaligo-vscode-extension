@@ -25,7 +25,8 @@ xaligo `.xal` diagram DSL.
 Open a `.xal` file, then run **xaligo: Open Preview** from the command palette or the editor title/context menu.
 
 Use Ctrl/Cmd + wheel over the diagram to zoom around the pointer. Drag the
-canvas with the primary mouse button to move it. The menu bar also provides
+canvas with the primary mouse button, or focus it and use the arrow keys, to
+move it. The menu bar also provides
 zoom, 100%, Fit, Refresh, and Close controls. View position is retained when a
 file is rendered again.
 
