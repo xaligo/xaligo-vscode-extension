@@ -501,7 +501,7 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
 <body>
   <nav class="menubar" aria-label="xaligo preview menu">
     <span class="brand">xaligo</span>
-    <div class="mode-tabs" aria-label="Preview mode">
+    <div class="mode-tabs" role="group" aria-label="Preview mode">
       <button id="mode-preview" type="button" aria-pressed="true" data-command="set-preview">Preview</button>
       <button id="mode-diff" type="button" aria-pressed="false" data-command="set-diff">Diff</button>
     </div>
@@ -518,10 +518,10 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
       <button id="compare-diff" type="button" data-command="refresh">Compare</button>
       <span id="diff-summary" class="diff-summary" aria-live="polite"></span>
     </div>
-    <div class="view-actions" aria-label="View controls">
-      <button type="button" data-view-command="zoom-out" title="Zoom out">−</button>
-      <button id="zoom-label" type="button" data-view-command="reset-zoom" title="Reset zoom">100%</button>
-      <button type="button" data-view-command="zoom-in" title="Zoom in">+</button>
+    <div class="view-actions" role="toolbar" aria-label="View controls">
+      <button type="button" data-view-command="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+      <button id="zoom-label" type="button" data-view-command="reset-zoom" title="Reset zoom" aria-label="Reset zoom">100%</button>
+      <button type="button" data-view-command="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
       <button type="button" data-view-command="fit" title="Fit diagrams">Fit</button>
       <button type="button" data-command="close" title="Close preview" aria-label="Close preview">×</button>
     </div>
@@ -536,6 +536,7 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
     <div id="loading" class="loading" role="status" aria-live="polite" hidden>Rendering…</div>
   </main>
   <footer class="gesture-hint">Ctrl/Cmd + wheel to zoom · drag or arrow keys to move</footer>
+  <div id="announcement" class="visually-hidden" role="status" aria-live="polite"></div>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

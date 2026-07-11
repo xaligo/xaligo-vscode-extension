@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { clampZoom, previewContentChanged, zoomAtPoint } from "../src/preview-contract";
+import {
+  clampZoom,
+  normalizeViewTransform,
+  previewContentChanged,
+  zoomAtPoint
+} from "../src/preview-contract";
 
 describe("preview zoom", () => {
   it("clamps zoom to the supported range", () => {
     expect(clampZoom(0)).toBe(0.05);
     expect(clampZoom(2)).toBe(2);
     expect(clampZoom(20)).toBe(8);
+    expect(clampZoom(Number.NaN)).toBe(1);
   });
 
   it("keeps the diagram point below the pointer fixed", () => {
@@ -19,6 +25,21 @@ describe("preview zoom", () => {
     const after = zoomAtPoint(before, 2.5, pointer.x, pointer.y);
     expect((pointer.x - after.panX) / after.zoom).toBeCloseTo(worldBefore.x);
     expect((pointer.y - after.panY) / after.zoom).toBeCloseTo(worldBefore.y);
+  });
+});
+
+describe("persisted preview transforms", () => {
+  it("accepts finite transforms and clamps their zoom", () => {
+    expect(normalizeViewTransform({ zoom: 20, panX: 10, panY: -5 })).toEqual({
+      zoom: 8,
+      panX: 10,
+      panY: -5
+    });
+  });
+
+  it("rejects malformed or non-finite state", () => {
+    expect(normalizeViewTransform(null)).toBeUndefined();
+    expect(normalizeViewTransform({ zoom: 1, panX: Number.NaN, panY: 0 })).toBeUndefined();
   });
 });
 

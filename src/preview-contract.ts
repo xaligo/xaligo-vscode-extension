@@ -55,7 +55,29 @@ export const minimumPreviewZoom = 0.05;
 export const maximumPreviewZoom = 8;
 
 export function clampZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) {
+    return 1;
+  }
   return Math.max(minimumPreviewZoom, Math.min(maximumPreviewZoom, zoom));
+}
+
+export function normalizeViewTransform(value: unknown): ViewTransform | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const candidate = value as Partial<ViewTransform>;
+  if (
+    typeof candidate.zoom !== "number" || !Number.isFinite(candidate.zoom) ||
+    typeof candidate.panX !== "number" || !Number.isFinite(candidate.panX) ||
+    typeof candidate.panY !== "number" || !Number.isFinite(candidate.panY)
+  ) {
+    return undefined;
+  }
+  return {
+    zoom: clampZoom(candidate.zoom),
+    panX: candidate.panX,
+    panY: candidate.panY
+  };
 }
 
 export function zoomAtPoint(

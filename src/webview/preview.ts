@@ -1,5 +1,6 @@
 import {
   clampZoom,
+  normalizeViewTransform,
   type PreviewHostMessage,
   type PreviewPanelState,
   type PreviewWebviewMessage,
@@ -44,14 +45,18 @@ export function startPreviewWebview(): void {
   const beforeFile = requiredElement<HTMLElement>("before-file");
   const afterFile = requiredElement<HTMLElement>("after-file");
   const diffSummary = requiredElement<HTMLElement>("diff-summary");
+  const announcement = requiredElement<HTMLElement>("announcement");
   const previewTab = requiredElement<HTMLButtonElement>("mode-preview");
   const diffTab = requiredElement<HTMLButtonElement>("mode-diff");
   const swapButton = requiredElement<HTMLButtonElement>("swap-diff");
   const compareButton = requiredElement<HTMLButtonElement>("compare-diff");
 
   const savedState = vscode.getState();
-  const persisted: PersistedPreviewState = savedState && typeof savedState.transforms === "object"
-    ? savedState
+  const savedTransforms = savedState?.transforms;
+  const persisted: PersistedPreviewState = savedTransforms &&
+    typeof savedTransforms === "object" &&
+    !Array.isArray(savedTransforms)
+    ? { transforms: savedTransforms }
     : { transforms: {} };
   let activeViewKey = "";
   let transform = { ...defaultTransform };
@@ -169,7 +174,11 @@ export function startPreviewWebview(): void {
     }));
     void Promise.all(pending).then(() => {
       if (token === renderToken && viewKey === activeViewKey && fitPending) {
-        requestAnimationFrame(fitView);
+        requestAnimationFrame(() => {
+          if (token === renderToken && viewKey === activeViewKey && fitPending) {
+            fitView();
+          }
+        });
       }
     });
   }
@@ -226,7 +235,7 @@ export function startPreviewWebview(): void {
         persistTransform();
       }
       activeViewKey = state.viewKey;
-      const restored = persisted.transforms[activeViewKey];
+      const restored = normalizeViewTransform(persisted.transforms[activeViewKey]);
       transform = restored ? { ...restored } : { ...defaultTransform };
       fitPending = !restored;
     }
@@ -296,6 +305,12 @@ export function startPreviewWebview(): void {
     applyTransform(transform, false);
     const hasDiagram = stage.querySelector("img") !== null;
     updateStatus(state, hasDiagram);
+    const current = state.mode === "preview" ? state.preview : state.diff;
+    if (contentChanged && hasDiagram && !current.loading && !current.error) {
+      announcement.textContent = state.mode === "preview"
+        ? `Preview updated: ${state.preview.sourceName ?? "xaligo diagram"}. Update ${contentRevision}.`
+        : `Structural diff updated: ${state.diff.beforeName ?? "before"} to ${state.diff.afterName ?? "after"}. Update ${contentRevision}.`;
+    }
     if (contentChanged && hasDiagram) {
       waitForImagesThenFit(contentToken, state.viewKey);
     }
@@ -429,6 +444,9 @@ export function startPreviewWebview(): void {
   });
 
   viewport.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
     const panStep = event.shiftKey ? 80 : 32;
     let handled = true;
     switch (event.key) {
