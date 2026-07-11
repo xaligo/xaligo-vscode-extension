@@ -30,6 +30,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test
+        run: npm test
+
       - name: Package VSIX
         run: npm run package -- --out xaligo-vscode-extension.vsix
 
