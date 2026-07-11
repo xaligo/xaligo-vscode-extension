@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { DiffSummary } from "./preview-contract";
 
@@ -43,4 +44,9 @@ export function parseDiffSummary(output: string): DiffSummary | undefined {
 export function replaceExtension(filePath: string, extension: string): string {
   const parsed = path.parse(filePath);
   return path.join(parsed.dir, `${parsed.name}.${extension}`);
+}
+
+export async function createTemporaryOutputDirectory(outputRoot: string, prefix: string): Promise<string> {
+  await fs.mkdir(outputRoot, { recursive: true });
+  return fs.mkdtemp(path.join(outputRoot, `${prefix}-`));
 }

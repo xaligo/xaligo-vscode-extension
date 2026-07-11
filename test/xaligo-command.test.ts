@@ -1,8 +1,11 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDiffArguments,
   buildRenderArguments,
+  createTemporaryOutputDirectory,
   diffOutputPaths,
   parseDiffSummary,
   replaceExtension
@@ -49,5 +52,18 @@ describe("xaligo command contracts", () => {
     expect(replaceExtension(path.join("docs.v1", "diagram.xal"), "svg")).toBe(
       path.join("docs.v1", "diagram.svg")
     );
+  });
+
+  it("allocates collision-free output directories", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-extension-test-"));
+    try {
+      const [left, right] = await Promise.all([
+        createTemporaryOutputDirectory(root, "same-input"),
+        createTemporaryOutputDirectory(root, "same-input")
+      ]);
+      expect(left).not.toBe(right);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 });

@@ -92,17 +92,28 @@ export class XaligoRenderer {
     private readonly context: vscode.ExtensionContext
   ) {}
 
-  async render(sourcePath: string, outputPath: string, format: XaligoRenderFormat): Promise<void> {
+  async render(
+    sourcePath: string,
+    outputPath: string,
+    format: XaligoRenderFormat,
+    signal?: AbortSignal
+  ): Promise<void> {
     const runtime = await this.resolveRuntime();
     const servicesPath = await findNearestServicesCsv(sourcePath);
     await runXaligo(
       runtime,
       buildRenderArguments(sourcePath, outputPath, format, servicesPath),
-      30_000
+      30_000,
+      signal
     );
   }
 
-  async diff(beforePath: string, afterPath: string, outputPrefix: string): Promise<XaligoDiffResult> {
+  async diff(
+    beforePath: string,
+    afterPath: string,
+    outputPrefix: string,
+    signal?: AbortSignal
+  ): Promise<XaligoDiffResult> {
     const runtime = await this.resolveRuntime();
     const [removedPath, addedPath] = diffOutputPaths(outputPrefix);
     await Promise.all([
@@ -114,7 +125,8 @@ export class XaligoRenderer {
       const execution = await runXaligo(
         runtime,
         buildDiffArguments(beforePath, afterPath, outputPrefix),
-        60_000
+        60_000,
+        signal
       );
       const [removedSvg, addedSvg] = await Promise.all([
         fs.readFile(removedPath, "utf8"),
@@ -229,7 +241,12 @@ function xaligoNativeBinaryPath(packageRoot: string, config: ExtensionXaligoConf
   return path.join(packageRoot, config.nativeBinaryDir, executable);
 }
 
-function runXaligo(runtime: XaligoRuntime, args: string[], timeout: number): Promise<XaligoProcessResult> {
+function runXaligo(
+  runtime: XaligoRuntime,
+  args: string[],
+  timeout: number,
+  signal?: AbortSignal
+): Promise<XaligoProcessResult> {
   return new Promise((resolve, reject) => {
     execFile(
       runtime.binary,
@@ -241,6 +258,7 @@ function runXaligo(runtime: XaligoRuntime, args: string[], timeout: number): Pro
           XALIGO_HOME: runtime.packageRoot
         },
         maxBuffer: 4 * 1024 * 1024,
+        signal,
         timeout
       },
       (error, stdout, stderr) => {

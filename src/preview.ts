@@ -9,6 +9,7 @@ import type {
   PreviewWebviewMessage
 } from "./preview-contract";
 import { XaligoRenderer } from "./xaligo";
+import { createTemporaryOutputDirectory } from "./xaligo-command";
 
 type DiffSide = "before" | "after";
 
@@ -22,6 +23,9 @@ export class XaligoPreviewController implements vscode.Disposable {
   private previewError: string | undefined;
   private previewLoading = false;
   private previewGeneration = 0;
+  private previewContentRevision = 0;
+  private previewSentRevision = -1;
+  private previewAbortController: AbortController | undefined;
 
   private diffBeforeUri: vscode.Uri | undefined;
   private diffAfterUri: vscode.Uri | undefined;
@@ -31,6 +35,9 @@ export class XaligoPreviewController implements vscode.Disposable {
   private diffError: string | undefined;
   private diffLoading = false;
   private diffGeneration = 0;
+  private diffContentRevision = 0;
+  private diffSentRevision = -1;
+  private diffAbortController: AbortController | undefined;
 
   private readonly subscriptions: vscode.Disposable[] = [];
 
@@ -40,18 +47,21 @@ export class XaligoPreviewController implements vscode.Disposable {
   ) {
     this.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
       const savedUri = document.uri.toString();
-      if (this.previewSourceUri?.toString() === savedUri) {
+      if (this.mode === "preview" && this.previewSourceUri?.toString() === savedUri) {
         void this.renderPreview();
       }
-      if (this.diffBeforeUri?.toString() === savedUri || this.diffAfterUri?.toString() === savedUri) {
+      if (this.mode === "diff" && (
+        this.diffBeforeUri?.toString() === savedUri ||
+        this.diffAfterUri?.toString() === savedUri
+      )) {
         void this.renderDiff();
       }
     }));
   }
 
   dispose(): void {
-    this.previewGeneration += 1;
-    this.diffGeneration += 1;
+    this.cancelPreviewRender();
+    this.cancelDiffRender();
     for (const subscription of this.subscriptions) {
       subscription.dispose();
     }
@@ -90,8 +100,11 @@ export class XaligoPreviewController implements vscode.Disposable {
     if (changedSource) {
       this.previewSvg = undefined;
       this.previewError = undefined;
+      this.previewContentRevision += 1;
     }
     this.mode = "preview";
+    this.cancelDiffRender();
+    this.forceActiveContentDelivery();
     this.ensurePanel();
     this.updatePanel();
     await this.renderPreview();
@@ -99,6 +112,8 @@ export class XaligoPreviewController implements vscode.Disposable {
 
   async openDiffPreview(): Promise<void> {
     this.mode = "diff";
+    this.cancelPreviewRender();
+    this.forceActiveContentDelivery();
     this.ensurePanel();
     this.updatePanel();
 
@@ -128,14 +143,16 @@ export class XaligoPreviewController implements vscode.Disposable {
       }
     );
     this.panel = panel;
+    this.previewSentRevision = -1;
+    this.diffSentRevision = -1;
     panel.webview.html = previewHtml(panel.webview, this.context.extensionUri);
     this.panelSubscriptions.push(
       panel.webview.onDidReceiveMessage((message: unknown) => {
         void this.handleWebviewMessage(message);
       }),
       panel.onDidDispose(() => {
-        this.previewGeneration += 1;
-        this.diffGeneration += 1;
+        this.cancelPreviewRender();
+        this.cancelDiffRender();
         this.disposePanelSubscriptions();
         this.panel = undefined;
       })
@@ -150,6 +167,7 @@ export class XaligoPreviewController implements vscode.Disposable {
     const candidate = message as Partial<PreviewWebviewMessage> & Record<string, unknown>;
     switch (candidate.command) {
       case "ready":
+        this.forceActiveContentDelivery();
         this.updatePanel();
         break;
       case "close":
@@ -180,16 +198,31 @@ export class XaligoPreviewController implements vscode.Disposable {
 
   private async setMode(mode: PreviewMode): Promise<void> {
     this.mode = mode;
+    if (mode === "preview") {
+      this.cancelDiffRender();
+    } else {
+      this.cancelPreviewRender();
+    }
+    this.forceActiveContentDelivery();
     if (mode === "preview" && !this.previewSourceUri) {
       const document = vscode.window.activeTextEditor?.document;
       if (isFileXalDocument(document) && await saveDocument(document)) {
         this.previewSourceUri = document.uri;
+        this.previewSvg = undefined;
+        this.previewError = undefined;
+        this.previewContentRevision += 1;
+        this.forceActiveContentDelivery();
         this.updatePanel();
         await this.renderPreview();
         return;
       }
     }
     this.updatePanel();
+    if (mode === "preview" && this.previewSourceUri) {
+      await this.renderPreview();
+    } else if (mode === "diff" && this.diffBeforeUri && this.diffAfterUri) {
+      await this.renderDiff();
+    }
   }
 
   private async selectDiffFile(side: DiffSide, renderWhenReady = true): Promise<boolean> {
@@ -256,22 +289,27 @@ export class XaligoPreviewController implements vscode.Disposable {
       return;
     }
 
+    this.previewAbortController?.abort();
+    const abortController = new AbortController();
+    this.previewAbortController = abortController;
     const generation = ++this.previewGeneration;
     this.previewLoading = true;
     this.previewError = undefined;
     this.updatePanel();
 
-    const outputDirectory = path.join(this.context.globalStorageUri.fsPath, "preview");
+    const outputRoot = path.join(this.context.globalStorageUri.fsPath, "preview");
     const digest = uriDigest(source);
-    const outputPath = path.join(outputDirectory, `${digest}-${generation}.svg`);
+    let invocationDirectory: string | undefined;
     try {
-      await fs.mkdir(outputDirectory, { recursive: true });
-      await this.renderer.render(source.fsPath, outputPath, "svg");
+      invocationDirectory = await createTemporaryOutputDirectory(outputRoot, digest);
+      const outputPath = path.join(invocationDirectory, "preview.svg");
+      await this.renderer.render(source.fsPath, outputPath, "svg", abortController.signal);
       const svg = await fs.readFile(outputPath, "utf8");
       if (generation !== this.previewGeneration) {
         return;
       }
       this.previewSvg = svg;
+      this.previewContentRevision += 1;
       this.previewError = undefined;
     } catch (error) {
       if (generation !== this.previewGeneration) {
@@ -279,9 +317,14 @@ export class XaligoPreviewController implements vscode.Disposable {
       }
       this.previewError = errorMessage(error);
     } finally {
-      await fs.rm(outputPath, { force: true }).catch(() => undefined);
+      if (invocationDirectory) {
+        await fs.rm(invocationDirectory, { recursive: true, force: true }).catch(() => undefined);
+      }
       if (generation === this.previewGeneration) {
         this.previewLoading = false;
+        if (this.previewAbortController === abortController) {
+          this.previewAbortController = undefined;
+        }
         this.updatePanel();
       }
     }
@@ -294,11 +337,15 @@ export class XaligoPreviewController implements vscode.Disposable {
       return;
     }
 
+    this.diffAbortController?.abort();
+    const abortController = new AbortController();
+    this.diffAbortController = abortController;
     const generation = ++this.diffGeneration;
     this.diffLoading = true;
     this.diffError = undefined;
     this.updatePanel();
 
+    let invocationDirectory: string | undefined;
     try {
       if (await filesReferToSamePath(before, after)) {
         throw new Error("Select two different .xal files for structural diff.");
@@ -307,17 +354,18 @@ export class XaligoPreviewController implements vscode.Disposable {
         throw new Error("Save both .xal files before running structural diff.");
       }
 
-      const outputDirectory = path.join(this.context.globalStorageUri.fsPath, "diff");
-      await fs.mkdir(outputDirectory, { recursive: true });
+      const outputRoot = path.join(this.context.globalStorageUri.fsPath, "diff");
       const pairDigest = crypto
         .createHash("sha256")
         .update(`${before.toString()}\n${after.toString()}`)
         .digest("hex")
         .slice(0, 16);
+      invocationDirectory = await createTemporaryOutputDirectory(outputRoot, pairDigest);
       const result = await this.renderer.diff(
         before.fsPath,
         after.fsPath,
-        path.join(outputDirectory, `${pairDigest}-${generation}`)
+        path.join(invocationDirectory, "comparison"),
+        abortController.signal
       );
       if (generation !== this.diffGeneration) {
         return;
@@ -325,6 +373,7 @@ export class XaligoPreviewController implements vscode.Disposable {
       this.diffRemovedSvg = result.removedSvg;
       this.diffAddedSvg = result.addedSvg;
       this.diffSummary = result.summary;
+      this.diffContentRevision += 1;
       this.diffError = undefined;
     } catch (error) {
       if (generation !== this.diffGeneration) {
@@ -332,20 +381,26 @@ export class XaligoPreviewController implements vscode.Disposable {
       }
       this.diffError = errorMessage(error);
     } finally {
+      if (invocationDirectory) {
+        await fs.rm(invocationDirectory, { recursive: true, force: true }).catch(() => undefined);
+      }
       if (generation === this.diffGeneration) {
         this.diffLoading = false;
+        if (this.diffAbortController === abortController) {
+          this.diffAbortController = undefined;
+        }
         this.updatePanel();
       }
     }
   }
 
   private clearDiffResult(): void {
-    this.diffGeneration += 1;
+    this.cancelDiffRender();
     this.diffRemovedSvg = undefined;
     this.diffAddedSvg = undefined;
     this.diffSummary = undefined;
+    this.diffContentRevision += 1;
     this.diffError = undefined;
-    this.diffLoading = false;
   }
 
   private updatePanel(): void {
@@ -361,32 +416,65 @@ export class XaligoPreviewController implements vscode.Disposable {
   private createPanelState(): PreviewPanelState {
     const previewKey = this.previewSourceUri?.toString() ?? "empty";
     const diffKey = `${this.diffBeforeUri?.toString() ?? "empty"}\n${this.diffAfterUri?.toString() ?? "empty"}`;
-    return {
+    const includePreviewContent = this.mode === "preview" && this.previewSentRevision !== this.previewContentRevision;
+    const includeDiffContent = this.mode === "diff" && this.diffSentRevision !== this.diffContentRevision;
+    const state: PreviewPanelState = {
       mode: this.mode,
       viewKey: this.mode === "preview" ? `preview:${previewKey}` : `diff:${diffKey}`,
       preview: {
+        contentRevision: this.previewContentRevision,
         sourceName: fileName(this.previewSourceUri),
         sourcePath: this.previewSourceUri?.fsPath,
-        svg: this.previewSvg,
+        svg: includePreviewContent ? this.previewSvg : undefined,
         loading: this.previewLoading,
         error: this.previewError
       },
       diff: {
+        contentRevision: this.diffContentRevision,
         beforeName: fileName(this.diffBeforeUri),
         beforePath: this.diffBeforeUri?.fsPath,
         afterName: fileName(this.diffAfterUri),
         afterPath: this.diffAfterUri?.fsPath,
-        removedSvg: this.diffRemovedSvg,
-        addedSvg: this.diffAddedSvg,
+        removedSvg: includeDiffContent ? this.diffRemovedSvg : undefined,
+        addedSvg: includeDiffContent ? this.diffAddedSvg : undefined,
         loading: this.diffLoading,
         error: this.diffError,
         summary: this.diffSummary
       }
     };
+    if (includePreviewContent) {
+      this.previewSentRevision = this.previewContentRevision;
+    }
+    if (includeDiffContent) {
+      this.diffSentRevision = this.diffContentRevision;
+    }
+    return state;
   }
 
   private postMessage(message: PreviewHostMessage): void {
     void this.panel?.webview.postMessage(message);
+  }
+
+  private forceActiveContentDelivery(): void {
+    if (this.mode === "preview") {
+      this.previewSentRevision = -1;
+    } else {
+      this.diffSentRevision = -1;
+    }
+  }
+
+  private cancelPreviewRender(): void {
+    this.previewAbortController?.abort();
+    this.previewAbortController = undefined;
+    this.previewGeneration += 1;
+    this.previewLoading = false;
+  }
+
+  private cancelDiffRender(): void {
+    this.diffAbortController?.abort();
+    this.diffAbortController = undefined;
+    this.diffGeneration += 1;
+    this.diffLoading = false;
   }
 
   private disposePanelSubscriptions(): void {
@@ -413,9 +501,9 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
 <body>
   <nav class="menubar" aria-label="xaligo preview menu">
     <span class="brand">xaligo</span>
-    <div class="mode-tabs" role="tablist" aria-label="Preview mode">
-      <button id="mode-preview" type="button" role="tab" data-command="set-preview">Preview</button>
-      <button id="mode-diff" type="button" role="tab" data-command="set-diff">Diff</button>
+    <div class="mode-tabs" aria-label="Preview mode">
+      <button id="mode-preview" type="button" aria-pressed="true" data-command="set-preview">Preview</button>
+      <button id="mode-diff" type="button" aria-pressed="false" data-command="set-diff">Diff</button>
     </div>
     <div id="preview-actions" class="context-actions">
       <span id="preview-source" class="file-label">No source selected</span>
@@ -435,19 +523,19 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
       <button id="zoom-label" type="button" data-view-command="reset-zoom" title="Reset zoom">100%</button>
       <button type="button" data-view-command="zoom-in" title="Zoom in">+</button>
       <button type="button" data-view-command="fit" title="Fit diagrams">Fit</button>
-      <button type="button" data-command="close" title="Close preview">×</button>
+      <button type="button" data-command="close" title="Close preview" aria-label="Close preview">×</button>
     </div>
   </nav>
   <main id="viewport" class="viewport" tabindex="0" aria-label="Diagram viewport">
-    <section id="stage" class="stage" aria-live="polite"></section>
-    <section id="empty-state" class="empty-state">
+    <section id="stage" class="stage"></section>
+    <section id="empty-state" class="empty-state" role="status" aria-live="polite">
       <h1 id="state-title">Rendering…</h1>
       <p id="state-message"></p>
       <pre id="state-error" hidden></pre>
     </section>
-    <div id="loading" class="loading" hidden>Rendering…</div>
+    <div id="loading" class="loading" role="status" aria-live="polite" hidden>Rendering…</div>
   </main>
-  <footer class="gesture-hint">Ctrl/Cmd + wheel to zoom · drag to move</footer>
+  <footer class="gesture-hint">Ctrl/Cmd + wheel to zoom · drag or arrow keys to move</footer>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

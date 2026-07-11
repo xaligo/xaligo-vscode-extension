@@ -3,6 +3,7 @@ import {
   type PreviewHostMessage,
   type PreviewPanelState,
   type PreviewWebviewMessage,
+  previewContentChanged,
   type ViewTransform,
   zoomAtPoint
 } from "../preview-contract";
@@ -48,12 +49,19 @@ export function startPreviewWebview(): void {
   const swapButton = requiredElement<HTMLButtonElement>("swap-diff");
   const compareButton = requiredElement<HTMLButtonElement>("compare-diff");
 
-  const persisted: PersistedPreviewState = vscode.getState() ?? { transforms: {} };
+  const savedState = vscode.getState();
+  const persisted: PersistedPreviewState = savedState && typeof savedState.transforms === "object"
+    ? savedState
+    : { transforms: {} };
   let activeViewKey = "";
   let transform = { ...defaultTransform };
   let drag: DragState | undefined;
   let fitPending = false;
   let objectUrls: string[] = [];
+  let renderedMode: PreviewPanelState["mode"] | undefined;
+  let renderedContentRevision = -1;
+  let renderToken = 0;
+  let persistTimer: number | undefined;
 
   function persistTransform(): void {
     if (!activeViewKey) {
@@ -67,6 +75,16 @@ export function startPreviewWebview(): void {
       }
     }
     vscode.setState(persisted);
+  }
+
+  function schedulePersistTransform(): void {
+    if (persistTimer !== undefined) {
+      window.clearTimeout(persistTimer);
+    }
+    persistTimer = window.setTimeout(() => {
+      persistTimer = undefined;
+      persistTransform();
+    }, 120);
   }
 
   function applyTransform(next: ViewTransform, persist = true): void {
@@ -83,6 +101,7 @@ export function startPreviewWebview(): void {
   }
 
   function zoomAroundViewportCenter(nextZoom: number): void {
+    fitPending = false;
     applyTransform(zoomAtPoint(
       transform,
       nextZoom,
@@ -135,7 +154,7 @@ export function startPreviewWebview(): void {
     return figure;
   }
 
-  function waitForImagesThenFit(): void {
+  function waitForImagesThenFit(token: number, viewKey: string): void {
     const images = Array.from(stage.querySelectorAll("img"));
     if (images.length === 0) {
       return;
@@ -149,7 +168,7 @@ export function startPreviewWebview(): void {
       image.addEventListener("error", () => resolve(), { once: true });
     }));
     void Promise.all(pending).then(() => {
-      if (fitPending) {
+      if (token === renderToken && viewKey === activeViewKey && fitPending) {
         requestAnimationFrame(fitView);
       }
     });
@@ -160,6 +179,7 @@ export function startPreviewWebview(): void {
     stateMessage.textContent = message;
     stateError.textContent = error ?? "";
     stateError.hidden = !error;
+    emptyState.setAttribute("role", error ? "alert" : "status");
     emptyState.hidden = false;
   }
 
@@ -198,6 +218,13 @@ export function startPreviewWebview(): void {
   function renderState(state: PreviewPanelState): void {
     const keyChanged = activeViewKey !== state.viewKey;
     if (keyChanged) {
+      if (activeViewKey) {
+        if (persistTimer !== undefined) {
+          window.clearTimeout(persistTimer);
+          persistTimer = undefined;
+        }
+        persistTransform();
+      }
       activeViewKey = state.viewKey;
       const restored = persisted.transforms[activeViewKey];
       transform = restored ? { ...restored } : { ...defaultTransform };
@@ -206,8 +233,8 @@ export function startPreviewWebview(): void {
 
     previewTab.classList.toggle("active", state.mode === "preview");
     diffTab.classList.toggle("active", state.mode === "diff");
-    previewTab.setAttribute("aria-selected", String(state.mode === "preview"));
-    diffTab.setAttribute("aria-selected", String(state.mode === "diff"));
+    previewTab.setAttribute("aria-pressed", String(state.mode === "preview"));
+    diffTab.setAttribute("aria-pressed", String(state.mode === "diff"));
     previewActions.hidden = state.mode !== "preview";
     diffActions.hidden = state.mode !== "diff";
 
@@ -223,39 +250,54 @@ export function startPreviewWebview(): void {
       ? `+${state.diff.summary.added} −${state.diff.summary.removed} ~${state.diff.summary.modified}`
       : "";
 
-    revokeObjectUrls();
-    stage.replaceChildren();
-    const grid = document.createElement("div");
-    grid.className = state.mode === "diff" ? "diagram-grid diff-grid" : "diagram-grid";
-    if (state.mode === "preview" && state.preview.svg) {
-      grid.append(createDiagramCard(
-        state.preview.sourceName ?? "Preview",
-        state.preview.svg,
-        `Preview of ${state.preview.sourceName ?? "xaligo diagram"}`
-      ));
-    } else if (state.mode === "diff" && state.diff.removedSvg && state.diff.addedSvg) {
-      grid.append(
-        createDiagramCard(
-          `Removed · ${state.diff.beforeName ?? "Before"}`,
-          state.diff.removedSvg,
-          `Removed elements in ${state.diff.beforeName ?? "before diagram"}`
-        ),
-        createDiagramCard(
-          `Added · ${state.diff.afterName ?? "After"}`,
-          state.diff.addedSvg,
-          `Added elements in ${state.diff.afterName ?? "after diagram"}`
-        )
-      );
-    }
-    if (grid.childElementCount > 0) {
-      stage.append(grid);
+    const contentRevision = state.mode === "preview"
+      ? state.preview.contentRevision
+      : state.diff.contentRevision;
+    const contentChanged = previewContentChanged(
+      renderedMode,
+      renderedContentRevision,
+      state.mode,
+      contentRevision
+    );
+    let contentToken = renderToken;
+    if (contentChanged) {
+      contentToken = ++renderToken;
+      revokeObjectUrls();
+      stage.replaceChildren();
+      const grid = document.createElement("div");
+      grid.className = state.mode === "diff" ? "diagram-grid diff-grid" : "diagram-grid";
+      if (state.mode === "preview" && state.preview.svg) {
+        grid.append(createDiagramCard(
+          state.preview.sourceName ?? "Preview",
+          state.preview.svg,
+          `Preview of ${state.preview.sourceName ?? "xaligo diagram"}`
+        ));
+      } else if (state.mode === "diff" && state.diff.removedSvg && state.diff.addedSvg) {
+        grid.append(
+          createDiagramCard(
+            `Removed · ${state.diff.beforeName ?? "Before"}`,
+            state.diff.removedSvg,
+            `Removed elements in ${state.diff.beforeName ?? "before diagram"}`
+          ),
+          createDiagramCard(
+            `Added · ${state.diff.afterName ?? "After"}`,
+            state.diff.addedSvg,
+            `Added elements in ${state.diff.afterName ?? "after diagram"}`
+          )
+        );
+      }
+      if (grid.childElementCount > 0) {
+        stage.append(grid);
+      }
+      renderedMode = state.mode;
+      renderedContentRevision = contentRevision;
     }
 
     applyTransform(transform, false);
-    const hasDiagram = grid.childElementCount > 0;
+    const hasDiagram = stage.querySelector("img") !== null;
     updateStatus(state, hasDiagram);
-    if (hasDiagram) {
-      waitForImagesThenFit();
+    if (contentChanged && hasDiagram) {
+      waitForImagesThenFit(contentToken, state.viewKey);
     }
   }
 
@@ -318,6 +360,7 @@ export function startPreviewWebview(): void {
       return;
     }
     event.preventDefault();
+    fitPending = false;
     const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
       ? 16
       : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
@@ -330,7 +373,8 @@ export function startPreviewWebview(): void {
       nextZoom,
       event.clientX - bounds.left,
       event.clientY - bounds.top
-    ));
+    ), false);
+    schedulePersistTransform();
   }, { passive: false });
 
   viewport.addEventListener("pointerdown", (event) => {
@@ -338,6 +382,7 @@ export function startPreviewWebview(): void {
     if (!event.isPrimary || event.button !== 0 || (target instanceof Element && target.closest(".empty-state"))) {
       return;
     }
+    fitPending = false;
     drag = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -358,7 +403,7 @@ export function startPreviewWebview(): void {
       zoom: transform.zoom,
       panX: drag.panX + event.clientX - drag.startX,
       panY: drag.panY + event.clientY - drag.startY
-    });
+    }, false);
   });
 
   function finishDrag(event: PointerEvent): void {
@@ -370,6 +415,7 @@ export function startPreviewWebview(): void {
     }
     drag = undefined;
     viewport.classList.remove("dragging");
+    persistTransform();
   }
 
   viewport.addEventListener("pointerup", finishDrag);
@@ -378,6 +424,50 @@ export function startPreviewWebview(): void {
     if (drag?.pointerId === event.pointerId) {
       drag = undefined;
       viewport.classList.remove("dragging");
+      persistTransform();
+    }
+  });
+
+  viewport.addEventListener("keydown", (event) => {
+    const panStep = event.shiftKey ? 80 : 32;
+    let handled = true;
+    switch (event.key) {
+      case "ArrowLeft":
+        fitPending = false;
+        applyTransform({ ...transform, panX: transform.panX + panStep });
+        break;
+      case "ArrowRight":
+        fitPending = false;
+        applyTransform({ ...transform, panX: transform.panX - panStep });
+        break;
+      case "ArrowUp":
+        fitPending = false;
+        applyTransform({ ...transform, panY: transform.panY + panStep });
+        break;
+      case "ArrowDown":
+        fitPending = false;
+        applyTransform({ ...transform, panY: transform.panY - panStep });
+        break;
+      case "+":
+      case "=":
+        zoomAroundViewportCenter(transform.zoom + 0.1);
+        break;
+      case "-":
+      case "_":
+        zoomAroundViewportCenter(transform.zoom - 0.1);
+        break;
+      case "0":
+        zoomAroundViewportCenter(1);
+        break;
+      case "f":
+      case "F":
+        fitView();
+        break;
+      default:
+        handled = false;
+    }
+    if (handled) {
+      event.preventDefault();
     }
   });
 
@@ -402,13 +492,19 @@ export function startPreviewWebview(): void {
     }
   });
 
-  window.addEventListener("beforeunload", revokeObjectUrls);
+  window.addEventListener("beforeunload", () => {
+    if (persistTimer !== undefined) {
+      window.clearTimeout(persistTimer);
+    }
+    persistTransform();
+    revokeObjectUrls();
+  });
   applyTransform(transform, false);
   updateStatus({
     mode: "preview",
     viewKey: "empty",
-    preview: { loading: true },
-    diff: { loading: false }
+    preview: { contentRevision: 0, loading: true },
+    diff: { contentRevision: 0, loading: false }
   }, false);
   vscode.postMessage({ command: "ready" });
 }

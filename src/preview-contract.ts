@@ -10,6 +10,7 @@ export interface PreviewPanelState {
   mode: PreviewMode;
   viewKey: string;
   preview: {
+    contentRevision: number;
     sourceName?: string;
     sourcePath?: string;
     svg?: string;
@@ -17,6 +18,7 @@ export interface PreviewPanelState {
     error?: string;
   };
   diff: {
+    contentRevision: number;
     beforeName?: string;
     beforePath?: string;
     afterName?: string;
@@ -69,4 +71,13 @@ export function zoomAtPoint(
     panX: pointX - (pointX - transform.panX) * ratio,
     panY: pointY - (pointY - transform.panY) * ratio
   };
+}
+
+export function previewContentChanged(
+  renderedMode: PreviewMode | undefined,
+  renderedRevision: number,
+  nextMode: PreviewMode,
+  nextRevision: number
+): boolean {
+  return renderedMode !== nextMode || renderedRevision !== nextRevision;
 }

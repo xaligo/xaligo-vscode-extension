@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampZoom, zoomAtPoint } from "../src/preview-contract";
+import { clampZoom, previewContentChanged, zoomAtPoint } from "../src/preview-contract";
 
 describe("preview zoom", () => {
   it("clamps zoom to the supported range", () => {
@@ -19,5 +19,16 @@ describe("preview zoom", () => {
     const after = zoomAtPoint(before, 2.5, pointer.x, pointer.y);
     expect((pointer.x - after.panX) / after.zoom).toBeCloseTo(worldBefore.x);
     expect((pointer.y - after.panY) / after.zoom).toBeCloseTo(worldBefore.y);
+  });
+});
+
+describe("preview content revisions", () => {
+  it("preserves image resources for status-only updates", () => {
+    expect(previewContentChanged("preview", 3, "preview", 3)).toBe(false);
+  });
+
+  it("replaces image resources when the mode or revision changes", () => {
+    expect(previewContentChanged("preview", 3, "diff", 3)).toBe(true);
+    expect(previewContentChanged("diff", 3, "diff", 4)).toBe(true);
   });
 });
