@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Check bundled renderer
+        run: npm run check:renderer
+
       - name: Package VSIX
         run: npm run package -- --out xaligo-vscode-extension.vsix
 
