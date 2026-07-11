@@ -1,13 +1,13 @@
-<frame width="1440" height="900" class="pa-4">
-  <aws-account title="AWS Account">
-    <aws-cloud title="AWS Cloud">
-      <region title="ap-northeast-1">
-        <vpc title="VPC" layout="horizontal">
-          <public-subnet title="Public Subnet">
+<frame version="1" width="1440" height="900" class="pa-4">
+  <aws-account id="account" title="AWS Account">
+    <aws-cloud id="cloud" title="AWS Cloud">
+      <region id="region-ap-northeast-1" title="ap-northeast-1">
+        <vpc id="application-vpc" title="VPC" layout="horizontal">
+          <public-subnet id="public-subnet" title="Public Subnet">
             <item id="1581" name="igw" />
             <item id="1182" name="alb" />
           </public-subnet>
-          <private-subnet title="Private Subnet">
+          <private-subnet id="private-subnet" title="Private Subnet">
             <item id="27" name="app" />
           </private-subnet>
         </vpc>

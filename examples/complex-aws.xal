@@ -1,37 +1,37 @@
-<frame width="2200" height="1250" class="pa-4" item-size="40">
-  <aws-account title="Production Account">
-    <aws-cloud title="AWS Cloud" gap="20">
-      <generic-group title="Global Edge" align="middle-spread">
+<frame version="1" width="2200" height="1250" class="pa-4" item-size="40">
+  <aws-account id="production-account" title="Production Account">
+    <aws-cloud id="production-cloud" title="AWS Cloud" gap="20">
+      <generic-group id="global-edge" title="Global Edge" align="middle-spread">
         <item id="1179" name="dns" />
         <item id="1178" name="cdn" />
         <item id="216" name="iam" />
       </generic-group>
 
-      <region title="ap-northeast-1" gap="20" row="8">
-        <generic-group title="Regional Managed Services" align="middle-spread" row="2">
+      <region id="region-ap-northeast-1" title="ap-northeast-1" gap="20" row="8">
+        <generic-group id="regional-managed-services" title="Regional Managed Services" align="middle-spread" row="2">
           <item id="13" name="lambda" />
           <item id="1020" name="assets" />
           <item id="227" name="waf" />
         </generic-group>
 
-        <vpc title="Application VPC (10.40.0.0/16)" gap="18" row="8">
-          <generic-group title="VPC Edge" align="middle-spread" row="2">
+        <vpc id="application-vpc" title="Application VPC (10.40.0.0/16)" gap="18" row="8">
+          <generic-group id="vpc-edge" title="VPC Edge" align="middle-spread" row="2">
             <item id="1581" name="igw" />
           </generic-group>
 
           <row gap="18" row="7">
             <col span="6">
-              <availability-zone title="AZ ap-northeast-1a" gap="14">
-                <public-subnet title="Public Subnet A" row="2" align="middle-spread">
+              <availability-zone id="az-a" title="AZ ap-northeast-1a" gap="14">
+                <public-subnet id="public-a" title="Public Subnet A" row="2" align="middle-spread">
                   <item id="1582" name="nat-a" />
                   <item id="1182" name="alb-a" />
                 </public-subnet>
-                <private-subnet title="App Subnet A" row="3" align="middle-spread">
+                <private-subnet id="app-a" title="App Subnet A" row="3" align="middle-spread">
                   <item id="27" name="web-a" />
                   <item id="547" name="api-a" />
                   <item id="13" name="worker-a" />
                 </private-subnet>
-                <private-subnet title="Data Subnet A" row="2" align="middle-spread">
+                <private-subnet id="data-a" title="Data Subnet A" row="2" align="middle-spread">
                   <item id="110" name="aurora-a" />
                   <item id="113" name="cache-a" />
                 </private-subnet>
@@ -39,17 +39,17 @@
             </col>
 
             <col span="6">
-              <availability-zone title="AZ ap-northeast-1c" gap="14">
-                <public-subnet title="Public Subnet C" row="2" align="middle-spread">
+              <availability-zone id="az-c" title="AZ ap-northeast-1c" gap="14">
+                <public-subnet id="public-c" title="Public Subnet C" row="2" align="middle-spread">
                   <item id="1582" name="nat-c" />
                   <item id="1182" name="alb-c" />
                 </public-subnet>
-                <private-subnet title="App Subnet C" row="3" align="middle-spread">
+                <private-subnet id="app-c" title="App Subnet C" row="3" align="middle-spread">
                   <item id="27" name="web-c" />
                   <item id="547" name="api-c" />
                   <item id="13" name="worker-c" />
                 </private-subnet>
-                <private-subnet title="Data Subnet C" row="2" align="middle-spread">
+                <private-subnet id="data-c" title="Data Subnet C" row="2" align="middle-spread">
                   <item id="110" name="aurora-c" />
                   <item id="113" name="cache-c" />
                 </private-subnet>

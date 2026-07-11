@@ -1,0 +1,17 @@
+<frame version="1" width="960" height="540" class="pa-4" layout="horizontal" gap="32">
+  <generic-group id="application-tier" title="Application Tier" gap="24">
+    <rectangle id="api" title="Public API v1" height="96" />
+    <rectangle id="worker" title="Background Worker" height="96" />
+  </generic-group>
+
+  <generic-group id="data-tier" title="Data Tier" gap="24">
+    <rectangle id="database" title="Primary Database" height="96" />
+    <rectangle id="legacy" title="Legacy Store" height="96" />
+  </generic-group>
+
+  <connections>
+    <connection src="api" dst="worker" kind="traffic" color="#2563EB" />
+    <connection src="worker" dst="database" kind="route" />
+    <connection src="legacy" dst="database" kind="traffic" color="#DC2626" />
+  </connections>
+</frame>

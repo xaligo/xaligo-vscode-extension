@@ -81,7 +81,7 @@
       "patterns": [
         {
           "name": "keyword.control.layout.xaligo",
-          "match": "\\b(?:frame|container|row|col)\\b"
+          "match": "\\b(?:frames|frame|container|row|col)\\b"
         },
         {
           "name": "entity.name.type.cloud.xaligo",
@@ -100,8 +100,16 @@
           "match": "\\b(?:item|spacer|blank)\\b"
         },
         {
+          "name": "support.type.shape.xaligo",
+          "match": "\\b(?:rectangle|port)\\b"
+        },
+        {
           "name": "keyword.operator.connection.tag.xaligo",
-          "match": "\\bconnection\\b"
+          "match": "\\b(?:connections|connection)\\b"
+        },
+        {
+          "name": "support.function.connection-point.xaligo",
+          "match": "\\b(?:src|dst|bends|points|path|bend|point|via|waypoint)\\b"
         },
         {
           "name": "entity.name.tag.other.xaligo",
@@ -147,7 +155,7 @@
       "patterns": [
         {
           "name": "entity.other.attribute-name.known.xaligo",
-          "match": "\\b(?:width|height|class|layout|gap|title|id|src|dst|span|row|col|visible|border|item-size|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|icon-id|name|ref|kind|color|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead)\\b"
+          "match": "\\b(?:version|width|height|class|layout|gap|title|id|src|dst|span|row|col|visible|border|item-size|font-size|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|overflow|icon-id|name|ref|target|kind|color|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead|side|anchor|src-side|dst-side|src-anchor|dst-anchor|x|y|dx|dy|bends|points|via|scale|coordinate-scale|grid)\\b"
         },
         {
           "name": "entity.other.attribute-name.xml.xaligo",
@@ -210,12 +218,16 @@
     "constants": {
       "patterns": [
         {
+          "name": "constant.language.anchor.xaligo",
+          "match": "\\b(?:top|right|bottom|left)-(?:[1-5]|start|near|middle|mid|center|centre|far|end)\\b"
+        },
+        {
           "name": "constant.language.boolean.xaligo",
           "match": "\\b(?:true|false)\\b"
         },
         {
           "name": "constant.language.layout.xaligo",
-          "match": "\\b(?:horizontal|vertical|staggered|solid|dashed|dotted|none|connection|traffic|route|arrow|bar|triangle|circle)\\b"
+          "match": "\\b(?:horizontal|vertical|staggered|error|visible|top|right|bottom|left|middle|center|spread|solid|dashed|dotted|none|connection|traffic|route|arrow|triangle|stealth|diamond|oval|s)\\b"
         },
         {
           "name": "constant.numeric.xaligo",
