@@ -19,6 +19,7 @@ xaligo `.xal` diagram DSL.
 - Refreshes the preview when the source file is saved.
 - Exports `.xal` diagrams to SVG, PPTX, and Excalidraw files.
 - Uses `<name>.services.csv` or the nearest `services.csv` for preview labels and legends when present.
+- Updates the xaligo runtime and the VS Code extension independently from the preview menu or command palette.
 
 ## Preview
 
@@ -48,11 +49,28 @@ To export the current `.xal` file, run **xaligo: Export as SVG**, **xaligo: Expo
 
 If the `.xal` icon does not appear with your current file icon theme, run **xaligo: Select File Icon Theme** or **Preferences: File Icon Theme**, then select **xaligo**.
 
-The native renderer is bundled in the VSIX; activation does not download or
-install a renderer. Structural diff requires xaligo 0.1.21 or newer. If the
-bundled renderer predates that capability, the preview shows an actionable
-error. During core development, set `xaligo.executablePath` to an absolute path
-for a compatible native xaligo CLI.
+The native renderer is bundled in the VSIX, so activation does not require a
+download. Structural diff requires xaligo 0.1.21 or newer. During core
+development, set `xaligo.executablePath` to an absolute path for a compatible
+native xaligo CLI.
+
+## Updates
+
+Select **Updates…** in the preview menu, or run **xaligo: Manage Updates** from
+the command palette. Runtime and extension updates are separate operations:
+
+- **Update xaligo Runtime** checks the npm release metadata, verifies the npm
+  package with its SHA-512 integrity value, verifies the platform binary with
+  the GitHub Release SHA-256 digest, and runs validate/render smoke tests before
+  activating it. A failed update leaves the active runtime unchanged.
+- **Update xaligo Extension** delegates installation to VS Code's extension
+  update mechanism and offers to reload the window afterward.
+
+Runtime updates are explicit and are stored in VS Code global storage. At
+render time the extension chooses the newer healthy managed or bundled runtime;
+an absolute `xaligo.executablePath` remains the highest-priority override. If
+npm's latest package maps to a prerelease build, the extension asks for
+confirmation before installing it.
 
 ## Example
 
@@ -80,6 +98,7 @@ for a compatible native xaligo CLI.
 - VS Code 1.90.0 or newer.
 - A trusted workspace before invoking the bundled native renderer.
 - xaligo 0.1.21 or newer for structural diff.
+- Network access only when an update is explicitly requested.
 
 ## Development
 

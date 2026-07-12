@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.14
+
+- Added separate commands for updating the xaligo runtime and the extension.
+- Added an Updates menu to the interactive preview.
+- Added verified, staged runtime updates with healthy bundled-runtime fallback.
+- Added version-aware selection between managed and bundled runtimes.
+
 ## 0.0.13
 
 - Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@^0.1.21`.
