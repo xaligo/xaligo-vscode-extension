@@ -3,6 +3,7 @@
 .vscode/**
 .github/**
 AGENTS.md
+!THIRD_PARTY_NOTICES.md
 PUBLISHING.md
 scripts/**
 node_modules/**

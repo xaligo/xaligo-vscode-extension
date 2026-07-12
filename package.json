@@ -2,7 +2,7 @@
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
   "description": "VS Code language support, interactive preview, and structural diff for the xaligo .xal diagram DSL.",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
@@ -84,7 +84,10 @@
     "onCommand:xaligo.exportSvg",
     "onCommand:xaligo.exportPptx",
     "onCommand:xaligo.exportExcalidraw",
-    "onCommand:xaligo.selectFileIconTheme"
+    "onCommand:xaligo.selectFileIconTheme",
+    "onCommand:xaligo.showUpdates",
+    "onCommand:xaligo.updateRuntime",
+    "onCommand:xaligo.updateExtension"
   ],
   "main": "./dist/extension/extension.js",
   "contributes": {
@@ -185,6 +188,24 @@
         "title": "Select File Icon Theme",
         "category": "xaligo",
         "icon": "$(symbol-color)"
+      },
+      {
+        "command": "xaligo.showUpdates",
+        "title": "Manage Updates",
+        "category": "xaligo",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "xaligo.updateRuntime",
+        "title": "Update xaligo Runtime",
+        "category": "xaligo",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "xaligo.updateExtension",
+        "title": "Update xaligo Extension",
+        "category": "xaligo",
+        "icon": "$(extensions)"
       }
     ],
     "menus": {
@@ -264,9 +285,14 @@
           "group": "navigation@4"
         },
         {
-          "command": "xaligo.preview.close",
+          "command": "xaligo.showUpdates",
           "when": "webviewId == 'xaligoPreview'",
           "group": "navigation@5"
+        },
+        {
+          "command": "xaligo.preview.close",
+          "when": "webviewId == 'xaligoPreview'",
+          "group": "navigation@6"
         }
       ]
     },
@@ -277,7 +303,7 @@
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "description": "Absolute path to a xaligo native CLI. Leave empty to use the renderer bundled with the extension. Structural diff requires xaligo 0.1.21 or newer."
+          "description": "Absolute path to a xaligo native CLI. Leave empty to use the newest healthy managed or bundled runtime. Structural diff requires xaligo 0.1.21 or newer."
         }
       }
     }
@@ -301,6 +327,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@xaligo/xaligo": "^0.1.21"
+    "@xaligo/xaligo": "^0.1.21",
+    "tar": "^7.5.19"
   }
 }

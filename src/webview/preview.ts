@@ -343,6 +343,9 @@ export function startPreviewWebview(): void {
         case "refresh":
           vscode.postMessage({ command: "refresh" });
           break;
+        case "updates":
+          vscode.postMessage({ command: "showUpdates" });
+          break;
         case "close":
           vscode.postMessage({ command: "close" });
           break;

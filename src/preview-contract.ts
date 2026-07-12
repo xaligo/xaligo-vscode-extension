@@ -43,6 +43,7 @@ export type PreviewWebviewMessage =
   | { command: "setMode"; mode: PreviewMode }
   | { command: "selectDiffFile"; side: "before" | "after" }
   | { command: "swapDiffFiles" }
+  | { command: "showUpdates" }
   | { command: "refresh" };
 
 export interface ViewTransform {

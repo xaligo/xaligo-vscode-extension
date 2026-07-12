@@ -43,7 +43,8 @@ export class XaligoPreviewController implements vscode.Disposable {
 
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly renderer: XaligoRenderer
+    private readonly renderer: XaligoRenderer,
+    private readonly showUpdates: () => Promise<void>
   ) {
     this.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
       const savedUri = document.uri.toString();
@@ -185,6 +186,9 @@ export class XaligoPreviewController implements vscode.Disposable {
         break;
       case "swapDiffFiles":
         await this.swapDiffFiles();
+        break;
+      case "showUpdates":
+        await this.showUpdates();
         break;
       case "refresh":
         if (this.mode === "diff") {
@@ -518,7 +522,8 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
       <button id="compare-diff" type="button" data-command="refresh">Compare</button>
       <span id="diff-summary" class="diff-summary" aria-live="polite"></span>
     </div>
-    <div class="view-actions" role="toolbar" aria-label="View controls">
+    <div class="view-actions" role="toolbar" aria-label="Preview controls">
+      <button type="button" data-command="updates" title="Update xaligo runtime or extension">Updates…</button>
       <button type="button" data-view-command="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
       <button id="zoom-label" type="button" data-view-command="reset-zoom" title="Reset zoom" aria-label="Reset zoom">100%</button>
       <button type="button" data-view-command="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>

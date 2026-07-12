@@ -2,6 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
 import { XaligoPreviewController } from "./preview";
+import { XaligoRuntimeResolver } from "./runtime-resolver";
+import { XaligoUpdates } from "./updates";
 import {
   type ExportFormat,
   exportFormats,
@@ -20,6 +22,9 @@ const exportSvgCommand = "xaligo.exportSvg";
 const exportPptxCommand = "xaligo.exportPptx";
 const exportExcalidrawCommand = "xaligo.exportExcalidraw";
 const selectFileIconThemeCommand = "xaligo.selectFileIconTheme";
+const showUpdatesCommand = "xaligo.showUpdates";
+const updateRuntimeCommand = "xaligo.updateRuntime";
+const updateExtensionCommand = "xaligo.updateExtension";
 const fileIconThemePromptStateKey = "xaligo.fileIconThemePromptDismissed";
 const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
 const commentPattern = /<!--[\s\S]*?-->/g;
@@ -68,8 +73,14 @@ const tagColors: Record<string, string> = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
-  const renderer = new XaligoRenderer(context);
-  const previewController = new XaligoPreviewController(context, renderer);
+  const runtimeResolver = new XaligoRuntimeResolver(context);
+  const renderer = new XaligoRenderer(runtimeResolver);
+  const updates = new XaligoUpdates(context, runtimeResolver);
+  const previewController = new XaligoPreviewController(
+    context,
+    renderer,
+    () => updates.showMenu()
+  );
 
   context.subscriptions.push(new XaligoTagColorController());
   context.subscriptions.push(previewController);
@@ -106,6 +117,18 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.commands.registerCommand(selectFileIconThemeCommand, () => {
     void vscode.commands.executeCommand("workbench.action.selectIconTheme");
   }));
+  context.subscriptions.push(vscode.commands.registerCommand(
+    showUpdatesCommand,
+    () => updates.showMenu()
+  ));
+  context.subscriptions.push(vscode.commands.registerCommand(
+    updateRuntimeCommand,
+    () => updates.updateRuntime()
+  ));
+  context.subscriptions.push(vscode.commands.registerCommand(
+    updateExtensionCommand,
+    () => updates.updateExtension()
+  ));
 
   void showFileIconThemeHint(context);
 }

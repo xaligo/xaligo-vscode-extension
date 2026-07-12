@@ -1,9 +1,11 @@
 import { execFile, type ExecFileException } from "node:child_process";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import * as vscode from "vscode";
 import type { DiffSummary } from "./preview-contract";
+import {
+  XaligoRuntimeResolver,
+  type XaligoRuntimeSelection
+} from "./runtime-resolver";
 import {
   buildDiffArguments,
   buildRenderArguments,
@@ -55,23 +57,6 @@ export const exportFormats: Record<"svg" | "pptx" | "excalidraw", ExportFormat> 
   }
 };
 
-interface ExtensionPackageJson {
-  xaligo?: Partial<ExtensionXaligoConfig>;
-}
-
-interface ExtensionXaligoConfig {
-  packageName: string;
-  packageRoot: string;
-  nativeBinaryDir: string;
-  nativeBinaryPlatformNames: Record<string, string>;
-  nativeBinaryArchNames: Record<string, string>;
-}
-
-interface XaligoRuntime {
-  binary: string;
-  packageRoot: string;
-}
-
 interface XaligoProcessResult {
   stdout: string;
   stderr: string;
@@ -89,7 +74,7 @@ class XaligoCommandError extends Error {
 
 export class XaligoRenderer {
   constructor(
-    private readonly context: vscode.ExtensionContext
+    private readonly runtimeResolver: XaligoRuntimeResolver
   ) {}
 
   async render(
@@ -98,7 +83,7 @@ export class XaligoRenderer {
     format: XaligoRenderFormat,
     signal?: AbortSignal
   ): Promise<void> {
-    const runtime = await this.resolveRuntime();
+    const runtime = await this.runtimeResolver.resolve();
     const servicesPath = await findNearestServicesCsv(sourcePath);
     await runXaligo(
       runtime,
@@ -114,7 +99,7 @@ export class XaligoRenderer {
     outputPrefix: string,
     signal?: AbortSignal
   ): Promise<XaligoDiffResult> {
-    const runtime = await this.resolveRuntime();
+    const runtime = await this.runtimeResolver.resolve();
     const [removedPath, addedPath] = diffOutputPaths(outputPrefix);
     await Promise.all([
       fs.rm(removedPath, { force: true }),
@@ -141,7 +126,7 @@ export class XaligoRenderer {
       if (error instanceof Error && /unknown command\s+["']diff["']/i.test(error.message)) {
         throw new Error(
           "Structural diff requires xaligo 0.1.21 or newer. " +
-          "Update the bundled renderer or set xaligo.executablePath to a compatible native CLI."
+          "Run “xaligo: Update xaligo Runtime” or set xaligo.executablePath to a compatible native CLI."
         );
       }
       throw error;
@@ -155,26 +140,6 @@ export class XaligoRenderer {
 
   async export(sourcePath: string, outputPath: string, exportFormat: ExportFormat): Promise<void> {
     await this.render(sourcePath, outputPath, exportFormat.renderFormat);
-  }
-
-  private async resolveRuntime(): Promise<XaligoRuntime> {
-    if (!vscode.workspace.isTrusted) {
-      throw new Error("Trust this workspace before running the xaligo renderer.");
-    }
-
-    const config = await readExtensionXaligoConfig(this.context.extensionPath);
-    const packageRoot = path.resolve(this.context.extensionPath, config.packageRoot);
-    if (!await exists(path.join(packageRoot, "package.json"))) {
-      throw new Error(`${config.packageName} is missing from the extension package.`);
-    }
-
-    const configuredBinary = configuredExecutablePath();
-    const binary = configuredBinary ?? xaligoNativeBinaryPath(packageRoot, config);
-    if (!await exists(binary)) {
-      throw new Error(`xaligo native binary was not found: ${binary}`);
-    }
-
-    return { binary, packageRoot };
   }
 }
 
@@ -201,48 +166,8 @@ export async function findNearestServicesCsv(sourcePath: string): Promise<string
   }
 }
 
-async function readExtensionXaligoConfig(extensionPath: string): Promise<ExtensionXaligoConfig> {
-  const manifestPath = path.join(extensionPath, "package.json");
-  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as ExtensionPackageJson;
-  const config = manifest.xaligo ?? {};
-  return {
-    packageName: config.packageName ?? "@xaligo/xaligo",
-    packageRoot: config.packageRoot ?? path.join("node_modules", "@xaligo", "xaligo"),
-    nativeBinaryDir: config.nativeBinaryDir ?? path.join("bin", "native"),
-    nativeBinaryPlatformNames: config.nativeBinaryPlatformNames ?? { win32: "windows" },
-    nativeBinaryArchNames: config.nativeBinaryArchNames ?? { x64: "amd64" }
-  };
-}
-
-function configuredExecutablePath(): string | undefined {
-  const value = vscode.workspace.getConfiguration("xaligo").get<string>("executablePath", "").trim();
-  if (!value) {
-    return undefined;
-  }
-
-  const expanded = value === "~"
-    ? os.homedir()
-    : value.startsWith(`~${path.sep}`)
-      ? path.join(os.homedir(), value.slice(2))
-      : value;
-  if (!path.isAbsolute(expanded)) {
-    throw new Error("xaligo.executablePath must be an absolute path.");
-  }
-  return expanded;
-}
-
-function xaligoNativeBinaryPath(packageRoot: string, config: ExtensionXaligoConfig): string {
-  const platform = process.platform;
-  const arch = config.nativeBinaryArchNames[process.arch] ?? process.arch;
-  const binaryPlatform = config.nativeBinaryPlatformNames[platform] ?? platform;
-  const executable = platform === "win32"
-    ? `xaligo-${binaryPlatform}-${arch}.exe`
-    : `xaligo-${binaryPlatform}-${arch}`;
-  return path.join(packageRoot, config.nativeBinaryDir, executable);
-}
-
 function runXaligo(
-  runtime: XaligoRuntime,
+  runtime: XaligoRuntimeSelection,
   args: string[],
   timeout: number,
   signal?: AbortSignal
