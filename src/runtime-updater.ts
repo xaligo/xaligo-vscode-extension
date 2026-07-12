@@ -112,8 +112,12 @@ export class XaligoRuntimeUpdater {
       );
 
       if (result.status === "current") {
+        const customNotice = result.current.source === "custom"
+          ? " The configured xaligo.executablePath remains active."
+          : "";
         await vscode.window.showInformationMessage(
-          `xaligo runtime ${result.current.identity.packageVersion} is already the latest available version.`
+          `xaligo runtime assets ${result.current.identity.packageVersion} are already the latest available version.` +
+          customNotice
         );
         return;
       }
