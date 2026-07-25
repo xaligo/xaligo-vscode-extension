@@ -45,7 +45,7 @@ move it. Zoom controls remain on the canvas; the menu panel provides Preview,
 Diff, Fit, and Refresh controls. View position is retained when a file is
 rendered again.
 
-The menu is a one-button-wide vertical panel with **表示** and **出力** tabs.
+The menu is a one-button-wide vertical panel with **View** and **Output** tabs.
 The display tab contains diagram, Markdown, and diff previews; the output tab
 contains Markdown conversion plus the seven diagram export formats. Hover or
 keyboard-focus any icon button to see its name. Validation, source generation,

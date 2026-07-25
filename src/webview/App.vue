@@ -225,14 +225,14 @@ function safeArtifactId(id: string): string {
 }
 
 const exportActions: CliMenuAction[] = [
-  { feature: "render-markdown", label: "Markdown 出力", icon: Memo },
-  { feature: "export-svg", label: "SVG 出力", icon: Picture },
-  { feature: "export-pptx", label: "PowerPoint 出力", icon: DataAnalysis },
-  { feature: "export-excalidraw", label: "Excalidraw 出力", icon: EditPen },
-  { feature: "export-pdf", label: "PDF 出力", icon: Document },
-  { feature: "export-excel", label: "Excel 出力", icon: Grid },
-  { feature: "export-xyflow", label: "XYFlow 出力", icon: Share },
-  { feature: "export-isoflow", label: "Isoflow 出力", icon: Box }
+  { feature: "render-markdown", label: "Render Markdown", icon: Memo },
+  { feature: "export-svg", label: "Export SVG", icon: Picture },
+  { feature: "export-pptx", label: "Export PowerPoint", icon: DataAnalysis },
+  { feature: "export-excalidraw", label: "Export Excalidraw", icon: EditPen },
+  { feature: "export-pdf", label: "Export PDF", icon: Document },
+  { feature: "export-excel", label: "Export Excel", icon: Grid },
+  { feature: "export-xyflow", label: "Export XYFlow", icon: Share },
+  { feature: "export-isoflow", label: "Export Isoflow", icon: Box }
 ];
 
 const loading = computed(() => {
@@ -254,21 +254,21 @@ const diffSummaryText = computed(() => {
   return summary ? `+${summary.added} −${summary.removed} ~${summary.modified}` : "";
 });
 const markdownPaperDisplay = computed(() => (
-  markdownPaper.value === "auto" ? "自動" : markdownPaper.value
+  markdownPaper.value === "auto" ? "Auto" : markdownPaper.value
 ));
 const markdownOrientationDisplay = computed(() => {
   switch (markdownOrientation.value) {
     case "portrait":
-      return "縦";
+      return "Portrait";
     case "landscape":
-      return "横";
+      return "Landscape";
     default:
-      return "自動";
+      return "Auto";
   }
 });
-const markdownPaperTooltip = computed(() => `Markdown 用紙サイズ: ${markdownPaperDisplay.value}`);
+const markdownPaperTooltip = computed(() => `Markdown paper size: ${markdownPaperDisplay.value}`);
 const markdownOrientationTooltip = computed(() => (
-  `Markdown 用紙の向き: ${markdownOrientationDisplay.value}`
+  `Markdown orientation: ${markdownOrientationDisplay.value}`
 ));
 function revokeObjectUrls(): void {
   for (const url of objectUrls) {
@@ -802,7 +802,7 @@ function selectMarkdownOrientation(
 }
 
 function markdownPaperOptionLabel(paper: MarkdownPreviewSettings["paper"]): string {
-  return paper === "auto" ? "自動調整" : paper;
+  return paper === "auto" ? "Auto fit" : paper;
 }
 
 function markdownOrientationOptionLabel(
@@ -810,11 +810,11 @@ function markdownOrientationOptionLabel(
 ): string {
   switch (orientation) {
     case "portrait":
-      return "縦向き";
+      return "Portrait";
     case "landscape":
-      return "横向き";
+      return "Landscape";
     default:
-      return "自動";
+      return "Auto";
   }
 }
 
@@ -904,7 +904,7 @@ onBeforeUnmount(() => {
         aria-label="xaligo preview menu"
         @scroll="hideMenuTooltip"
       >
-        <div class="menu-tabs" role="tablist" aria-label="メニュー種別" aria-orientation="vertical">
+        <div class="menu-tabs" role="tablist" aria-label="Menu sections" aria-orientation="vertical">
           <el-button
             id="menu-tab-view"
             class="menu-tab-button"
@@ -913,12 +913,12 @@ onBeforeUnmount(() => {
             :aria-selected="menuTab === 'view'"
             :tabindex="menuTab === 'view' ? 0 : -1"
             aria-controls="menu-panel-view"
-            title="表示"
+            title="View"
             @click="selectMenuTab('view')"
             @keydown.down.prevent="focusMenuTab('output')"
             @keydown.end.prevent="focusMenuTab('output')"
           >
-            表示
+            View
           </el-button>
           <el-button
             id="menu-tab-output"
@@ -928,12 +928,12 @@ onBeforeUnmount(() => {
             :aria-selected="menuTab === 'output'"
             :tabindex="menuTab === 'output' ? 0 : -1"
             aria-controls="menu-panel-output"
-            title="出力"
+            title="Output"
             @click="selectMenuTab('output')"
             @keydown.up.prevent="focusMenuTab('view')"
             @keydown.home.prevent="focusMenuTab('view')"
           >
-            出力
+            Output
           </el-button>
         </div>
 
@@ -944,12 +944,12 @@ onBeforeUnmount(() => {
           role="tabpanel"
           aria-labelledby="menu-tab-view"
         >
-          <div class="menu-stack-group" aria-label="表示操作">
+          <div class="menu-stack-group" aria-label="View actions">
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('プレビュー表示', $event)"
+              @mouseenter="showMenuTooltip('Preview diagram', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('プレビュー表示', $event)"
+              @focusin="showMenuTooltip('Preview diagram', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -964,9 +964,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('構造差分を表示', $event)"
+              @mouseenter="showMenuTooltip('Show structural diff', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('構造差分を表示', $event)"
+              @focusin="showMenuTooltip('Show structural diff', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -981,9 +981,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('Markdown を表示', $event)"
+              @mouseenter="showMenuTooltip('Preview Markdown', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('Markdown を表示', $event)"
+              @focusin="showMenuTooltip('Preview Markdown', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -998,9 +998,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('再描画', $event)"
+              @mouseenter="showMenuTooltip('Refresh preview', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('再描画', $event)"
+              @focusin="showMenuTooltip('Refresh preview', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button class="icon-menu-button" aria-label="Refresh" @click="refresh">
@@ -1010,9 +1010,9 @@ onBeforeUnmount(() => {
             <span
               v-if="state.mode !== 'markdown'"
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('全フレームを表示範囲に合わせる', $event)"
+              @mouseenter="showMenuTooltip('Fit all frames', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('全フレームを表示範囲に合わせる', $event)"
+              @focusin="showMenuTooltip('Fit all frames', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
             </span>
           </div>
 
-          <div class="menu-stack-group" aria-label="Markdown 表示設定">
+          <div class="menu-stack-group" aria-label="Markdown view settings">
             <h2 class="menu-stack-label">Markdown</h2>
             <el-dropdown
               class="markdown-setting-dropdown"
@@ -1101,13 +1101,13 @@ onBeforeUnmount(() => {
             </el-dropdown>
           </div>
 
-          <div v-if="state.mode === 'diff'" class="menu-stack-group" aria-label="差分操作">
-            <h2 class="menu-stack-label">差分</h2>
+          <div v-if="state.mode === 'diff'" class="menu-stack-group" aria-label="Diff actions">
+            <h2 class="menu-stack-label">Diff</h2>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip(`変更前: ${state.diff.beforeName ?? '未選択'}`, $event)"
+              @mouseenter="showMenuTooltip(`Before: ${state.diff.beforeName ?? 'Not selected'}`, $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip(`変更前: ${state.diff.beforeName ?? '未選択'}`, $event)"
+              @focusin="showMenuTooltip(`Before: ${state.diff.beforeName ?? 'Not selected'}`, $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -1120,9 +1120,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip(`変更後: ${state.diff.afterName ?? '未選択'}`, $event)"
+              @mouseenter="showMenuTooltip(`After: ${state.diff.afterName ?? 'Not selected'}`, $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip(`変更後: ${state.diff.afterName ?? '未選択'}`, $event)"
+              @focusin="showMenuTooltip(`After: ${state.diff.afterName ?? 'Not selected'}`, $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -1135,9 +1135,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip('変更前と変更後を入れ替える', $event)"
+              @mouseenter="showMenuTooltip('Swap before and after', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip('変更前と変更後を入れ替える', $event)"
+              @focusin="showMenuTooltip('Swap before and after', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -1151,9 +1151,9 @@ onBeforeUnmount(() => {
             </span>
             <span
               class="menu-tooltip"
-              @mouseenter="showMenuTooltip(diffSummaryText ? `差分を比較 (${diffSummaryText})` : '差分を比較', $event)"
+              @mouseenter="showMenuTooltip(diffSummaryText ? `Compare diagrams (${diffSummaryText})` : 'Compare diagrams', $event)"
               @mouseleave="hideMenuTooltip"
-              @focusin="showMenuTooltip(diffSummaryText ? `差分を比較 (${diffSummaryText})` : '差分を比較', $event)"
+              @focusin="showMenuTooltip(diffSummaryText ? `Compare diagrams (${diffSummaryText})` : 'Compare diagrams', $event)"
               @focusout="hideMenuTooltip"
             >
               <el-button
@@ -1177,7 +1177,7 @@ onBeforeUnmount(() => {
           role="tabpanel"
           aria-labelledby="menu-tab-output"
         >
-          <div class="menu-stack-group" aria-label="出力操作">
+          <div class="menu-stack-group" aria-label="Output actions">
             <span
               v-for="action in exportActions"
               :key="action.feature"
