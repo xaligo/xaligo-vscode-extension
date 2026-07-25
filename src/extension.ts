@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
+import { createXaligoLogger } from "./logger";
 import { XaligoPreviewController } from "./preview";
 import { XaligoRuntimeResolver } from "./runtime-resolver";
 import { XaligoUpdates } from "./updates";
@@ -25,6 +26,7 @@ const selectFileIconThemeCommand = "xaligo.selectFileIconTheme";
 const showUpdatesCommand = "xaligo.showUpdates";
 const updateRuntimeCommand = "xaligo.updateRuntime";
 const updateExtensionCommand = "xaligo.updateExtension";
+const showOutputChannelCommand = "xaligo.showOutputChannel";
 const fileIconThemePromptStateKey = "xaligo.fileIconThemePromptDismissed";
 const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
 const commentPattern = /<!--[\s\S]*?-->/g;
@@ -73,6 +75,10 @@ const tagColors: Record<string, string> = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
+  const logger = createXaligoLogger();
+  context.subscriptions.push(logger);
+  logger.info(`activating xaligo ${context.extension.packageJSON.version} (${context.extensionMode === vscode.ExtensionMode.Development ? "development" : "production"} mode)`);
+
   const runtimeResolver = new XaligoRuntimeResolver(context);
   const renderer = new XaligoRenderer(runtimeResolver);
   const updates = new XaligoUpdates(context, runtimeResolver);
@@ -129,6 +135,9 @@ export function activate(context: vscode.ExtensionContext): void {
     updateExtensionCommand,
     () => updates.updateExtension()
   ));
+  context.subscriptions.push(vscode.commands.registerCommand(showOutputChannelCommand, () => {
+    logger.show();
+  }));
 
   void showFileIconThemeHint(context);
 }

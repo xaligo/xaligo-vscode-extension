@@ -87,7 +87,8 @@
     "onCommand:xaligo.selectFileIconTheme",
     "onCommand:xaligo.showUpdates",
     "onCommand:xaligo.updateRuntime",
-    "onCommand:xaligo.updateExtension"
+    "onCommand:xaligo.updateExtension",
+    "onCommand:xaligo.showOutputChannel"
   ],
   "main": "./dist/extension/extension.js",
   "contributes": {
@@ -206,6 +207,12 @@
         "title": "Update xaligo Extension",
         "category": "xaligo",
         "icon": "$(extensions)"
+      },
+      {
+        "command": "xaligo.showOutputChannel",
+        "title": "Show Output Channel",
+        "category": "xaligo",
+        "icon": "$(output)"
       }
     ],
     "menus": {

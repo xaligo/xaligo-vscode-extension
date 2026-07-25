@@ -109,7 +109,9 @@ npm run typecheck
 npm run build
 ```
 
-Open this folder in VS Code, press `F5`, and open `examples/sample.xal` in the extension development host.
+Open this folder in VS Code, press `F5`, and open `examples/sample.xal` in the extension development host. `F5` runs `.vscode/launch.json`'s "Run Extension"
+configuration, which builds the extension first and launches the Extension
+Development Host.
 
 For iterative work:
 
@@ -120,6 +122,22 @@ npm run watch:webview
 
 Run the two watch commands in separate terminals when changing both extension
 host and WebView code.
+
+### Debugging and a local native CLI
+
+The "xaligo" output channel (Output panel dropdown, or run **xaligo: Show
+Output Channel**) logs the resolved runtime (bundled, managed, or custom) and
+every native CLI invocation, including failures. Use **Developer: Set Log
+Level...** and pick "xaligo" to see `Debug`/`Trace` level detail such as the
+exact command line for each render.
+
+`.vscode/launch.json`'s "Run Extension" configuration sets the
+`XALIGO_CLI_PATH` environment variable to `../xaligo/.bin/xaligo`, so `F5`
+exercises a locally built native CLI from a sibling checkout of the
+[xaligo](https://github.com/xaligo/xaligo) repository (`make build` there)
+instead of the bundled or managed runtime. `XALIGO_CLI_PATH` takes priority
+over the `xaligo.executablePath` setting; clear it in `launch.json`, or edit
+the path, to use a different runtime while debugging.
 
 Before publishing:
 

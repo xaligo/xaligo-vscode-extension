@@ -1,6 +1,7 @@
 import { execFile, type ExecFileException } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { xaligoLogger } from "./logger";
 import type { DiffSummary } from "./preview-contract";
 import {
   XaligoRuntimeResolver,
@@ -172,6 +173,8 @@ function runXaligo(
   timeout: number,
   signal?: AbortSignal
 ): Promise<XaligoProcessResult> {
+  const logger = xaligoLogger();
+  logger.debug(`exec: ${runtime.binary} ${args.join(" ")}`);
   return new Promise((resolve, reject) => {
     execFile(
       runtime.binary,
@@ -189,9 +192,11 @@ function runXaligo(
       (error, stdout, stderr) => {
         if (error) {
           const details = (stderr || stdout).trim() || error.message;
+          logger.error(`command failed: ${runtime.binary} ${args.join(" ")}\n${details}`);
           reject(new XaligoCommandError(details, error));
           return;
         }
+        logger.debug(`command succeeded: ${runtime.binary} ${args.join(" ")}`);
         resolve({ stdout, stderr });
       }
     );

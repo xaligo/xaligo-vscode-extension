@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/extension/**/*.js"
+      ],
+      "preLaunchTask": "npm: build",
+      "env": {
+        // Points the extension at the locally built native CLI from the
+        // sibling xaligo repository instead of the bundled/managed runtime.
+        // Run `make build` there first, or clear this to use the default
+        // bundled runtime. `xaligo.executablePath` (a user/workspace
+        // setting) is ignored while this is set.
+        "XALIGO_CLI_PATH": "${workspaceFolder}/../xaligo/.bin/xaligo"
+      }
+    }
+  ]
+}

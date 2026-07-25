@@ -75,6 +75,8 @@ export class XaligoRuntimeResolver {
   }
 
   async resolve(): Promise<XaligoRuntimeSelection> {
+    const { xaligoLogger } = await import("./logger");
+    const logger = xaligoLogger();
     const vscodeApi = await import("vscode");
     if (!vscodeApi.workspace.isTrusted) {
       throw new Error("Trust this workspace before running the xaligo renderer.");
@@ -93,14 +95,15 @@ export class XaligoRuntimeResolver {
     ]);
     const selectedPackage = chooseRuntimeCandidate(bundled, managed.runtime, managed.pinned);
     if (!selectedPackage) {
-      throw new Error(
-        `${config.packageName} has no healthy bundled or managed runtime for ` +
-        `${process.platform}/${process.arch}.`
-      );
+      const error = `${config.packageName} has no healthy bundled or managed runtime for ` +
+        `${process.platform}/${process.arch}.`;
+      logger.error(error);
+      throw new Error(error);
     }
 
     if (customBinary) {
       const customPackage = bundled ?? selectedPackage;
+      logger.info(`resolved xaligo runtime: custom ${customBinary}`);
       return {
         binary: customBinary,
         packageRoot: customPackage.packageRoot,
@@ -108,6 +111,10 @@ export class XaligoRuntimeResolver {
         source: "custom"
       };
     }
+    logger.info(
+      `resolved xaligo runtime: ${selectedPackage.source} ${selectedPackage.identity.releaseTag} ` +
+      `(${selectedPackage.binary})`
+    );
     return selectedPackage;
   }
 
@@ -349,17 +356,25 @@ function isSafeRuntimeKey(value: string): boolean {
 }
 
 function configuredExecutablePath(vscodeApi: typeof import("vscode")): string | undefined {
-  const value = vscodeApi.workspace.getConfiguration("xaligo").get<string>("executablePath", "").trim();
-  if (!value) {
+  const envValue = process.env.XALIGO_CLI_PATH?.trim();
+  if (envValue) {
+    return expandExecutablePath(envValue, "XALIGO_CLI_PATH environment variable");
+  }
+  const settingValue = vscodeApi.workspace.getConfiguration("xaligo").get<string>("executablePath", "").trim();
+  if (!settingValue) {
     return undefined;
   }
+  return expandExecutablePath(settingValue, "xaligo.executablePath");
+}
+
+function expandExecutablePath(value: string, settingLabel: string): string {
   const expanded = value === "~"
     ? os.homedir()
     : value.startsWith(`~${path.sep}`)
       ? path.join(os.homedir(), value.slice(2))
       : value;
   if (!path.isAbsolute(expanded)) {
-    throw new Error("xaligo.executablePath must be an absolute path.");
+    throw new Error(`${settingLabel} must be an absolute path.`);
   }
   return path.normalize(expanded);
 }
