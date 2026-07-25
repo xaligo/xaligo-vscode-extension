@@ -23,15 +23,15 @@ export async function readRenderedMarkdownPreview(
       .relative(path.dirname(markdownPath), svgPath)
       .split(path.sep)
       .join("/");
-    const generatedReference = `![](${relativePath})`;
-    if (!source.includes(generatedReference)) {
+    const pattern = buildGeneratedImageReferencePattern(relativePath);
+    if (!pattern.test(source)) {
       throw new Error(
         `The rendered Markdown did not reference generated SVG ${entry.name}.`
       );
     }
 
     const placeholder = `xaligo-preview-svg:asset-${index + 1}`;
-    source = source.replaceAll(generatedReference, `![](${placeholder})`);
+    source = source.replace(pattern, `![](${placeholder})`);
     assets.push({
       placeholder,
       svg: await fs.readFile(svgPath, "utf8")
@@ -39,4 +39,23 @@ export async function readRenderedMarkdownPreview(
   }
 
   return { source, assets };
+}
+
+// The xaligo CLI's `render markdown` command always wraps the generated
+// image destination in angle brackets and percent-encodes it via Go's
+// `url.URL.EscapedPath`, e.g. `![](<assets/guide-1.svg>)`. Match both that
+// form and a plain, unencoded destination so this stays tolerant of CLI
+// output changes and of hand-authored references in test fixtures.
+function buildGeneratedImageReferencePattern(relativePath: string): RegExp {
+  const encoded = relativePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const destinations = new Set([relativePath, encoded]);
+  const alternation = [...destinations].map(escapeRegExp).join("|");
+  return new RegExp(`!\\[\\]\\(<?(?:${alternation})>?\\)`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -14,7 +14,7 @@ describe("Markdown preview document", () => {
       await Promise.all([
         writeFile(
           markdownPath,
-          "# Guide\n\n![](assets/guide-1.svg)\n\n![External](images/photo.png)\n"
+          "# Guide\n\n![](<assets/guide-1.svg>)\n\n![External](images/photo.png)\n"
         ),
         writeFile(
           path.join(svgDirectory, "guide-1.svg"),
@@ -31,6 +31,28 @@ describe("Markdown preview document", () => {
         placeholder: "xaligo-preview-svg:asset-1",
         svg: '<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
       }]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("matches an unwrapped, unescaped SVG reference as a fallback", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xaligo-markdown-preview-"));
+    const svgDirectory = path.join(root, "assets");
+    const markdownPath = path.join(root, "document.md");
+    try {
+      await mkdir(svgDirectory);
+      await Promise.all([
+        writeFile(markdownPath, "# Guide\n\n![](assets/guide-1.svg)\n"),
+        writeFile(
+          path.join(svgDirectory, "guide-1.svg"),
+          '<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
+        )
+      ]);
+
+      const preview = await readRenderedMarkdownPreview(markdownPath, svgDirectory);
+
+      expect(preview.source).toContain("![](xaligo-preview-svg:asset-1)");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
