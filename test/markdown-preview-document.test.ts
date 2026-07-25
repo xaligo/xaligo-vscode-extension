@@ -93,4 +93,15 @@ describe("Markdown preview document", () => {
     );
     expect(previewStyles).toContain(".markdown-page-sheet");
   });
+
+  it("renders generated SVGs without border or shadow decoration", async () => {
+    const previewStyles = await readFile(
+      new URL("../media/preview.css", import.meta.url),
+      "utf8"
+    );
+
+    expect(previewStyles).toMatch(
+      /\.markdown-document img\[src\^="blob:"\]\s*\{[^}]*\bborder:\s*0;[^}]*\bbox-shadow:\s*none;[^}]*\}/
+    );
+  });
 });
