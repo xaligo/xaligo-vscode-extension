@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.15
+
+- Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@0.1.25-main.34`.
+- Added PDF, Excel, XYFlow, and Isoflow export commands, plus Validate
+  Diagram and Show Runtime Version commands.
+- Added a Run CLI Feature... command covering `serve`, Markdown
+  rendering, source generation, service insertion, project
+  initialization, help, and shell completion.
+- Added Markdown preview: renders `.md`/`.markdown` files with the
+  MIT-licensed `vue-markdown-render` and embeds CLI-generated xaligo
+  SVG diagrams as vector images.
+- Reworked the preview panel into a multi-frame diagram-card canvas
+  with independent per-frame drag/fit controls.
+- Rebuilt the preview webview UI with Vue 3 and Element Plus (MIT).
+
 ## 0.0.14
 
 - Added separate commands for updating the xaligo runtime and the extension.
