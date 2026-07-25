@@ -1,10 +1,99 @@
 import { describe, expect, it } from "vitest";
 import {
   clampZoom,
+  cliFeatures,
+  defaultMarkdownPreviewSettings,
+  markdownOrientations,
+  markdownPageDimensionsMm,
+  markdownPaperSizes,
   normalizeViewTransform,
+  parseMarkdownPreviewSettings,
   previewContentChanged,
   zoomAtPoint
 } from "../src/preview-contract";
+
+describe("preview CLI features", () => {
+  it("exposes every command, render format, service mode, and completion shell", () => {
+    expect(cliFeatures).toEqual([
+      "validate",
+      "export-svg",
+      "export-pptx",
+      "export-excalidraw",
+      "export-pdf",
+      "export-excel",
+      "export-xyflow",
+      "export-isoflow",
+      "preview-markdown",
+      "serve",
+      "render-markdown",
+      "generate-xal",
+      "add-service",
+      "add-services",
+      "init",
+      "version",
+      "help",
+      "completion-bash",
+      "completion-fish",
+      "completion-powershell",
+      "completion-zsh",
+      "custom"
+    ]);
+  });
+});
+
+describe("Markdown preview settings", () => {
+  it("defaults to A4 portrait and exposes every CLI page option", () => {
+    expect(defaultMarkdownPreviewSettings).toEqual({
+      paper: "A4",
+      orientation: "portrait"
+    });
+    expect(markdownPaperSizes).toEqual([
+      "auto",
+      "A5",
+      "A4",
+      "A3",
+      "A2",
+      "A1",
+      "Letter",
+      "Legal",
+      "Tabloid"
+    ]);
+    expect(markdownOrientations).toEqual(["auto", "portrait", "landscape"]);
+  });
+
+  it("accepts supported menu settings and rejects malformed messages", () => {
+    expect(parseMarkdownPreviewSettings({
+      paper: "A3",
+      orientation: "landscape"
+    })).toEqual({
+      paper: "A3",
+      orientation: "landscape"
+    });
+    expect(parseMarkdownPreviewSettings({
+      paper: "A0",
+      orientation: "landscape"
+    })).toBeUndefined();
+    expect(parseMarkdownPreviewSettings({
+      paper: "A4",
+      orientation: "sideways"
+    })).toBeUndefined();
+  });
+
+  it("sizes the Markdown page independently from embedded SVG dimensions", () => {
+    expect(markdownPageDimensionsMm({
+      paper: "A4",
+      orientation: "portrait"
+    })).toEqual({ width: 210, height: 297 });
+    expect(markdownPageDimensionsMm({
+      paper: "A4",
+      orientation: "landscape"
+    })).toEqual({ width: 297, height: 210 });
+    expect(markdownPageDimensionsMm({
+      paper: "auto",
+      orientation: "portrait"
+    })).toBeUndefined();
+  });
+});
 
 describe("preview zoom", () => {
   it("clamps zoom to the supported range", () => {

@@ -2,14 +2,26 @@ import crypto from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
+import { readRenderedMarkdownPreview } from "./markdown-preview";
 import type {
+  CliFeature,
+  MarkdownPreviewSettings,
   PreviewHostMessage,
   PreviewMode,
   PreviewPanelState,
   PreviewWebviewMessage
 } from "./preview-contract";
+import {
+  cliFeatures,
+  defaultMarkdownPreviewSettings,
+  parseMarkdownPreviewSettings
+} from "./preview-contract";
+import { readPreviewArtifacts } from "./preview-artifacts";
 import { XaligoRenderer } from "./xaligo";
-import { createTemporaryOutputDirectory } from "./xaligo-command";
+import {
+  createTemporaryOutputDirectory,
+  isMarkdownFilePath
+} from "./xaligo-command";
 
 type DiffSide = "before" | "after";
 
@@ -19,13 +31,24 @@ export class XaligoPreviewController implements vscode.Disposable {
   private mode: PreviewMode = "preview";
 
   private previewSourceUri: vscode.Uri | undefined;
-  private previewSvg: string | undefined;
+  private previewArtifacts: PreviewPanelState["preview"]["artifacts"];
   private previewError: string | undefined;
   private previewLoading = false;
   private previewGeneration = 0;
   private previewContentRevision = 0;
   private previewSentRevision = -1;
   private previewAbortController: AbortController | undefined;
+
+  private markdownSourceUri: vscode.Uri | undefined;
+  private markdownSource: string | undefined;
+  private markdownAssets: PreviewPanelState["markdown"]["assets"];
+  private markdownSettings: MarkdownPreviewSettings = { ...defaultMarkdownPreviewSettings };
+  private markdownError: string | undefined;
+  private markdownLoading = false;
+  private markdownGeneration = 0;
+  private markdownContentRevision = 0;
+  private markdownSentRevision = -1;
+  private markdownAbortController: AbortController | undefined;
 
   private diffBeforeUri: vscode.Uri | undefined;
   private diffAfterUri: vscode.Uri | undefined;
@@ -44,12 +67,20 @@ export class XaligoPreviewController implements vscode.Disposable {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly renderer: XaligoRenderer,
-    private readonly showUpdates: () => Promise<void>
+    private readonly showUpdates: () => Promise<void>,
+    private readonly runCliFeature: (
+      feature: CliFeature,
+      sourceUri?: vscode.Uri,
+      markdown?: MarkdownPreviewSettings
+    ) => Promise<void>
   ) {
     this.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
       const savedUri = document.uri.toString();
       if (this.mode === "preview" && this.previewSourceUri?.toString() === savedUri) {
         void this.renderPreview();
+      }
+      if (this.mode === "markdown" && this.markdownSourceUri?.toString() === savedUri) {
+        void this.renderMarkdown();
       }
       if (this.mode === "diff" && (
         this.diffBeforeUri?.toString() === savedUri ||
@@ -62,6 +93,7 @@ export class XaligoPreviewController implements vscode.Disposable {
 
   dispose(): void {
     this.cancelPreviewRender();
+    this.cancelMarkdownRender();
     this.cancelDiffRender();
     for (const subscription of this.subscriptions) {
       subscription.dispose();
@@ -99,11 +131,12 @@ export class XaligoPreviewController implements vscode.Disposable {
     const changedSource = this.previewSourceUri?.toString() !== document.uri.toString();
     this.previewSourceUri = document.uri;
     if (changedSource) {
-      this.previewSvg = undefined;
+      this.previewArtifacts = undefined;
       this.previewError = undefined;
       this.previewContentRevision += 1;
     }
     this.mode = "preview";
+    this.cancelMarkdownRender();
     this.cancelDiffRender();
     this.forceActiveContentDelivery();
     this.ensurePanel();
@@ -111,9 +144,70 @@ export class XaligoPreviewController implements vscode.Disposable {
     await this.renderPreview();
   }
 
+  async openMarkdownPreview(
+    document: vscode.TextDocument | undefined,
+    settings: MarkdownPreviewSettings = { ...defaultMarkdownPreviewSettings }
+  ): Promise<void> {
+    let sourceUri: vscode.Uri | undefined;
+    if (isFileMarkdownDocument(document)) {
+      if (!await saveDocument(document)) {
+        vscode.window.showWarningMessage("Save the Markdown file before starting preview.");
+        return;
+      }
+      sourceUri = document.uri;
+    } else if (this.mode === "markdown" && this.markdownSourceUri) {
+      sourceUri = this.markdownSourceUri;
+      if (!await saveOpenDocument(sourceUri)) {
+        return;
+      }
+    } else {
+      const defaultSource = this.markdownSourceUri ?? this.previewSourceUri;
+      const selection = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        defaultUri: defaultSource
+          ? vscode.Uri.file(path.dirname(defaultSource.fsPath))
+          : undefined,
+        filters: { Markdown: ["md", "markdown"] },
+        openLabel: "Preview",
+        title: "Select the Markdown file to preview"
+      });
+      sourceUri = selection?.[0];
+      if (!sourceUri) {
+        return;
+      }
+      if (!isMarkdownFilePath(sourceUri.fsPath)) {
+        vscode.window.showWarningMessage("Select a saved .md or .markdown file.");
+        return;
+      }
+      if (!await saveOpenDocument(sourceUri)) {
+        return;
+      }
+    }
+
+    const changedSource = this.markdownSourceUri?.toString() !== sourceUri.toString();
+    this.markdownSourceUri = sourceUri;
+    this.markdownSettings = settings;
+    if (changedSource) {
+      this.markdownSource = undefined;
+      this.markdownAssets = undefined;
+      this.markdownError = undefined;
+      this.markdownContentRevision += 1;
+    }
+    this.mode = "markdown";
+    this.cancelPreviewRender();
+    this.cancelDiffRender();
+    this.forceActiveContentDelivery();
+    this.ensurePanel();
+    this.updatePanel();
+    await this.renderMarkdown();
+  }
+
   async openDiffPreview(): Promise<void> {
     this.mode = "diff";
     this.cancelPreviewRender();
+    this.cancelMarkdownRender();
     this.forceActiveContentDelivery();
     this.ensurePanel();
     this.updatePanel();
@@ -138,13 +232,14 @@ export class XaligoPreviewController implements vscode.Disposable {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview"),
-          vscode.Uri.joinPath(this.context.extensionUri, "media")
+          vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview")
         ]
       }
     );
+    panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, "assets", "xaligo-icon-vscode-128.png");
     this.panel = panel;
     this.previewSentRevision = -1;
+    this.markdownSentRevision = -1;
     this.diffSentRevision = -1;
     panel.webview.html = previewHtml(panel.webview, this.context.extensionUri);
     this.panelSubscriptions.push(
@@ -153,6 +248,7 @@ export class XaligoPreviewController implements vscode.Disposable {
       }),
       panel.onDidDispose(() => {
         this.cancelPreviewRender();
+        this.cancelMarkdownRender();
         this.cancelDiffRender();
         this.disposePanelSubscriptions();
         this.panel = undefined;
@@ -175,7 +271,11 @@ export class XaligoPreviewController implements vscode.Disposable {
         this.closePreview();
         break;
       case "setMode":
-        if (candidate.mode === "preview" || candidate.mode === "diff") {
+        if (
+          candidate.mode === "preview" ||
+          candidate.mode === "markdown" ||
+          candidate.mode === "diff"
+        ) {
           await this.setMode(candidate.mode);
         }
         break;
@@ -190,9 +290,34 @@ export class XaligoPreviewController implements vscode.Disposable {
       case "showUpdates":
         await this.showUpdates();
         break;
+      case "setMarkdownSettings": {
+        const settings = parseMarkdownPreviewSettings(candidate.settings);
+        if (settings) {
+          this.markdownSettings = settings;
+          this.updatePanel();
+        }
+        break;
+      }
+      case "runCliFeature":
+        if (typeof candidate.feature === "string" && cliFeatures.includes(candidate.feature as CliFeature)) {
+          const feature = candidate.feature as CliFeature;
+          const markdown = feature === "preview-markdown"
+            ? candidate.markdown === undefined
+              ? { ...defaultMarkdownPreviewSettings }
+              : parseMarkdownPreviewSettings(candidate.markdown)
+            : undefined;
+          if (feature === "preview-markdown" && markdown) {
+            await this.openMarkdownPreview(undefined, markdown);
+          } else if (feature !== "preview-markdown") {
+            await this.runCliFeature(feature, this.activeSourceUri());
+          }
+        }
+        break;
       case "refresh":
         if (this.mode === "diff") {
           await this.renderDiff();
+        } else if (this.mode === "markdown") {
+          await this.renderMarkdown();
         } else {
           await this.renderPreview();
         }
@@ -203,16 +328,21 @@ export class XaligoPreviewController implements vscode.Disposable {
   private async setMode(mode: PreviewMode): Promise<void> {
     this.mode = mode;
     if (mode === "preview") {
+      this.cancelMarkdownRender();
+      this.cancelDiffRender();
+    } else if (mode === "markdown") {
+      this.cancelPreviewRender();
       this.cancelDiffRender();
     } else {
       this.cancelPreviewRender();
+      this.cancelMarkdownRender();
     }
     this.forceActiveContentDelivery();
     if (mode === "preview" && !this.previewSourceUri) {
       const document = vscode.window.activeTextEditor?.document;
       if (isFileXalDocument(document) && await saveDocument(document)) {
         this.previewSourceUri = document.uri;
-        this.previewSvg = undefined;
+        this.previewArtifacts = undefined;
         this.previewError = undefined;
         this.previewContentRevision += 1;
         this.forceActiveContentDelivery();
@@ -224,9 +354,15 @@ export class XaligoPreviewController implements vscode.Disposable {
     this.updatePanel();
     if (mode === "preview" && this.previewSourceUri) {
       await this.renderPreview();
+    } else if (mode === "markdown" && this.markdownSourceUri) {
+      await this.renderMarkdown();
     } else if (mode === "diff" && this.diffBeforeUri && this.diffAfterUri) {
       await this.renderDiff();
     }
+  }
+
+  private activeSourceUri(): vscode.Uri | undefined {
+    return this.mode === "markdown" ? this.markdownSourceUri : this.previewSourceUri;
   }
 
   private async selectDiffFile(side: DiffSide, renderWhenReady = true): Promise<boolean> {
@@ -308,11 +444,11 @@ export class XaligoPreviewController implements vscode.Disposable {
       invocationDirectory = await createTemporaryOutputDirectory(outputRoot, digest);
       const outputPath = path.join(invocationDirectory, "preview.svg");
       await this.renderer.render(source.fsPath, outputPath, "svg", abortController.signal);
-      const svg = await fs.readFile(outputPath, "utf8");
+      const artifacts = await readPreviewArtifacts(invocationDirectory, outputPath);
       if (generation !== this.previewGeneration) {
         return;
       }
-      this.previewSvg = svg;
+      this.previewArtifacts = artifacts;
       this.previewContentRevision += 1;
       this.previewError = undefined;
     } catch (error) {
@@ -328,6 +464,66 @@ export class XaligoPreviewController implements vscode.Disposable {
         this.previewLoading = false;
         if (this.previewAbortController === abortController) {
           this.previewAbortController = undefined;
+        }
+        this.updatePanel();
+      }
+    }
+  }
+
+  private async renderMarkdown(): Promise<void> {
+    const source = this.markdownSourceUri;
+    if (!source || !this.panel) {
+      return;
+    }
+
+    this.cancelMarkdownRender();
+    const abortController = new AbortController();
+    this.markdownAbortController = abortController;
+    const generation = ++this.markdownGeneration;
+    this.markdownLoading = true;
+    this.markdownError = undefined;
+    this.updatePanel();
+
+    const outputRoot = path.join(this.context.globalStorageUri.fsPath, "markdown-preview");
+    const digest = uriDigest(source);
+    let invocationDirectory: string | undefined;
+    try {
+      if (!await saveOpenDocument(source)) {
+        throw new Error("Save the Markdown file before starting preview.");
+      }
+      invocationDirectory = await createTemporaryOutputDirectory(outputRoot, digest);
+      const outputPath = path.join(invocationDirectory, "document.md");
+      const svgDirectory = path.join(invocationDirectory, "assets");
+      await this.renderer.renderMarkdown(
+        source.fsPath,
+        outputPath,
+        svgDirectory,
+        abortController.signal
+      );
+      if (generation !== this.markdownGeneration) {
+        return;
+      }
+      const rendered = await readRenderedMarkdownPreview(outputPath, svgDirectory);
+      if (generation !== this.markdownGeneration) {
+        return;
+      }
+      this.markdownSource = rendered.source;
+      this.markdownAssets = rendered.assets;
+      this.markdownContentRevision += 1;
+      this.markdownError = undefined;
+    } catch (error) {
+      if (generation !== this.markdownGeneration) {
+        return;
+      }
+      this.markdownError = errorMessage(error);
+    } finally {
+      if (invocationDirectory) {
+        await fs.rm(invocationDirectory, { recursive: true, force: true }).catch(() => undefined);
+      }
+      if (generation === this.markdownGeneration) {
+        this.markdownLoading = false;
+        if (this.markdownAbortController === abortController) {
+          this.markdownAbortController = undefined;
         }
         this.updatePanel();
       }
@@ -419,19 +615,36 @@ export class XaligoPreviewController implements vscode.Disposable {
 
   private createPanelState(): PreviewPanelState {
     const previewKey = this.previewSourceUri?.toString() ?? "empty";
+    const markdownKey = this.markdownSourceUri?.toString() ?? "empty";
     const diffKey = `${this.diffBeforeUri?.toString() ?? "empty"}\n${this.diffAfterUri?.toString() ?? "empty"}`;
     const includePreviewContent = this.mode === "preview" && this.previewSentRevision !== this.previewContentRevision;
+    const includeMarkdownContent = this.mode === "markdown" &&
+      this.markdownSentRevision !== this.markdownContentRevision;
     const includeDiffContent = this.mode === "diff" && this.diffSentRevision !== this.diffContentRevision;
     const state: PreviewPanelState = {
       mode: this.mode,
-      viewKey: this.mode === "preview" ? `preview:${previewKey}` : `diff:${diffKey}`,
+      viewKey: this.mode === "preview"
+        ? `preview:${previewKey}`
+        : this.mode === "markdown"
+          ? `markdown:${markdownKey}`
+          : `diff:${diffKey}`,
       preview: {
         contentRevision: this.previewContentRevision,
         sourceName: fileName(this.previewSourceUri),
         sourcePath: this.previewSourceUri?.fsPath,
-        svg: includePreviewContent ? this.previewSvg : undefined,
+        artifacts: includePreviewContent ? this.previewArtifacts : undefined,
         loading: this.previewLoading,
         error: this.previewError
+      },
+      markdown: {
+        contentRevision: this.markdownContentRevision,
+        sourceName: fileName(this.markdownSourceUri),
+        sourcePath: this.markdownSourceUri?.fsPath,
+        source: includeMarkdownContent ? this.markdownSource : undefined,
+        assets: includeMarkdownContent ? this.markdownAssets : undefined,
+        settings: this.markdownSettings,
+        loading: this.markdownLoading,
+        error: this.markdownError
       },
       diff: {
         contentRevision: this.diffContentRevision,
@@ -449,6 +662,9 @@ export class XaligoPreviewController implements vscode.Disposable {
     if (includePreviewContent) {
       this.previewSentRevision = this.previewContentRevision;
     }
+    if (includeMarkdownContent) {
+      this.markdownSentRevision = this.markdownContentRevision;
+    }
     if (includeDiffContent) {
       this.diffSentRevision = this.diffContentRevision;
     }
@@ -462,6 +678,8 @@ export class XaligoPreviewController implements vscode.Disposable {
   private forceActiveContentDelivery(): void {
     if (this.mode === "preview") {
       this.previewSentRevision = -1;
+    } else if (this.mode === "markdown") {
+      this.markdownSentRevision = -1;
     } else {
       this.diffSentRevision = -1;
     }
@@ -472,6 +690,13 @@ export class XaligoPreviewController implements vscode.Disposable {
     this.previewAbortController = undefined;
     this.previewGeneration += 1;
     this.previewLoading = false;
+  }
+
+  private cancelMarkdownRender(): void {
+    this.markdownAbortController?.abort();
+    this.markdownAbortController = undefined;
+    this.markdownGeneration += 1;
+    this.markdownLoading = false;
   }
 
   private cancelDiffRender(): void {
@@ -490,59 +715,21 @@ export class XaligoPreviewController implements vscode.Disposable {
 }
 
 function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-  const nonce = crypto.randomBytes(16).toString("base64");
-  const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "preview.css"));
+  const scriptNonce = crypto.randomBytes(16).toString("base64");
+  const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "webview", "preview.css"));
   const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "webview", "preview.js"));
   return `<!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src blob:; style-src ${webview.cspSource}; script-src 'nonce-${scriptNonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${stylesheetUri}">
   <title>xaligo Preview</title>
 </head>
 <body>
-  <nav class="menubar" aria-label="xaligo preview menu">
-    <span class="brand">xaligo</span>
-    <div class="mode-tabs" role="group" aria-label="Preview mode">
-      <button id="mode-preview" type="button" aria-pressed="true" data-command="set-preview">Preview</button>
-      <button id="mode-diff" type="button" aria-pressed="false" data-command="set-diff">Diff</button>
-    </div>
-    <div id="preview-actions" class="context-actions">
-      <span id="preview-source" class="file-label">No source selected</span>
-      <button type="button" data-command="refresh" title="Render again">Refresh</button>
-    </div>
-    <div id="diff-actions" class="context-actions" hidden>
-      <button id="select-before" type="button" data-command="select-before">Before…</button>
-      <span id="before-file" class="file-label">Not selected</span>
-      <button id="select-after" type="button" data-command="select-after">After…</button>
-      <span id="after-file" class="file-label">Not selected</span>
-      <button id="swap-diff" type="button" data-command="swap" title="Swap before and after">Swap</button>
-      <button id="compare-diff" type="button" data-command="refresh">Compare</button>
-      <span id="diff-summary" class="diff-summary" aria-live="polite"></span>
-    </div>
-    <div class="view-actions" role="toolbar" aria-label="Preview controls">
-      <button type="button" data-command="updates" title="Update xaligo runtime or extension">Updates…</button>
-      <button type="button" data-view-command="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
-      <button id="zoom-label" type="button" data-view-command="reset-zoom" title="Reset zoom" aria-label="Reset zoom">100%</button>
-      <button type="button" data-view-command="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
-      <button type="button" data-view-command="fit" title="Fit diagrams">Fit</button>
-      <button type="button" data-command="close" title="Close preview" aria-label="Close preview">×</button>
-    </div>
-  </nav>
-  <main id="viewport" class="viewport" tabindex="0" aria-label="Diagram viewport">
-    <section id="stage" class="stage"></section>
-    <section id="empty-state" class="empty-state" role="status" aria-live="polite">
-      <h1 id="state-title">Rendering…</h1>
-      <p id="state-message"></p>
-      <pre id="state-error" hidden></pre>
-    </section>
-    <div id="loading" class="loading" role="status" aria-live="polite" hidden>Rendering…</div>
-  </main>
-  <footer class="gesture-hint">Ctrl/Cmd + wheel to zoom · drag or arrow keys to move</footer>
-  <div id="announcement" class="visually-hidden" role="status" aria-live="polite"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <div id="app"></div>
+  <script nonce="${scriptNonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
 }
@@ -552,6 +739,9 @@ function panelTitle(state: PreviewPanelState): string {
     const before = state.diff.beforeName ?? "Before";
     const after = state.diff.afterName ?? "After";
     return `Diff: ${before} ↔ ${after}`;
+  }
+  if (state.mode === "markdown") {
+    return `Preview: ${state.markdown.sourceName ?? "Markdown"}`;
   }
   return `Preview: ${state.preview.sourceName ?? "xaligo"}`;
 }
@@ -566,6 +756,16 @@ function fileName(uri: vscode.Uri | undefined): string | undefined {
 
 function isFileXalDocument(document: vscode.TextDocument | undefined): document is vscode.TextDocument {
   return Boolean(document && document.languageId === "xal" && document.uri.scheme === "file");
+}
+
+function isFileMarkdownDocument(
+  document: vscode.TextDocument | undefined
+): document is vscode.TextDocument {
+  return Boolean(
+    document &&
+    document.uri.scheme === "file" &&
+    isMarkdownFilePath(document.uri.fsPath)
+  );
 }
 
 async function saveDocument(document: vscode.TextDocument): Promise<boolean> {

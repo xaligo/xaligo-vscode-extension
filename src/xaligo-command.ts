@@ -1,18 +1,63 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { DiffSummary } from "./preview-contract";
+import { type DiffSummary } from "./preview-contract";
 
-export type XaligoRenderFormat = "svg" | "pptx" | "excalidraw";
+export type XaligoRenderFormat =
+  | "svg"
+  | "pptx"
+  | "excalidraw"
+  | "pdf"
+  | "excel"
+  | "xyflow"
+  | "isoflow";
+
+export interface XaligoRenderOptions {
+  combineFrames?: boolean;
+  servicesPath?: string;
+}
+
+export interface XaligoMarkdownRenderOptions {
+  servicesPath?: string;
+}
+
+export function isMarkdownFilePath(filePath: string): boolean {
+  return [".md", ".markdown"].includes(path.extname(filePath).toLowerCase());
+}
+
+export function buildMarkdownRenderArguments(
+  sourcePath: string,
+  outputPath: string,
+  svgDirectory: string,
+  options: XaligoMarkdownRenderOptions = {}
+): string[] {
+  const args = [
+    "render",
+    "markdown",
+    sourcePath,
+    "--output",
+    outputPath,
+    "--svg-dir",
+    svgDirectory
+  ];
+  if (options.servicesPath) {
+    args.push("--services", options.servicesPath);
+  }
+  return args;
+}
 
 export function buildRenderArguments(
   sourcePath: string,
   outputPath: string,
   format: XaligoRenderFormat,
-  servicesPath?: string
+  options: XaligoRenderOptions | string = {}
 ): string[] {
+  const resolvedOptions = typeof options === "string" ? { servicesPath: options } : options;
   const args = ["render", sourcePath, "--format", format, "-o", outputPath];
-  if (servicesPath) {
-    args.push("--services", servicesPath);
+  if (resolvedOptions.servicesPath) {
+    args.push("--services", resolvedOptions.servicesPath);
+  }
+  if (resolvedOptions.combineFrames) {
+    args.push("--combine-frames");
   }
   return args;
 }

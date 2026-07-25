@@ -4,14 +4,54 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDiffArguments,
+  buildMarkdownRenderArguments,
   buildRenderArguments,
   createTemporaryOutputDirectory,
   diffOutputPaths,
+  isMarkdownFilePath,
   parseDiffSummary,
   replaceExtension
 } from "../src/xaligo-command";
 
 describe("xaligo command contracts", () => {
+  it("recognizes Markdown preview source paths", () => {
+    expect(isMarkdownFilePath("guide.md")).toBe(true);
+    expect(isMarkdownFilePath("GUIDE.MARKDOWN")).toBe(true);
+    expect(isMarkdownFilePath("diagram.xal")).toBe(false);
+  });
+
+  it("builds Markdown preview assets without sizing embedded SVGs as pages", () => {
+    expect(buildMarkdownRenderArguments(
+      "guide.md",
+      "/tmp/preview/document.md",
+      "/tmp/preview/assets"
+    )).toEqual([
+      "render",
+      "markdown",
+      "guide.md",
+      "--output",
+      "/tmp/preview/document.md",
+      "--svg-dir",
+      "/tmp/preview/assets"
+    ]);
+    expect(buildMarkdownRenderArguments(
+      "guide.md",
+      "/tmp/preview/document.md",
+      "/tmp/preview/assets",
+      { servicesPath: "services.csv" }
+    )).toEqual([
+      "render",
+      "markdown",
+      "guide.md",
+      "--output",
+      "/tmp/preview/document.md",
+      "--svg-dir",
+      "/tmp/preview/assets",
+      "--services",
+      "services.csv"
+    ]);
+  });
+
   it("passes services only to render", () => {
     expect(buildRenderArguments("source.xal", "preview.svg", "svg", "services.csv")).toEqual([
       "render",
@@ -29,6 +69,23 @@ describe("xaligo command contracts", () => {
       "after.xal",
       "--output",
       "/tmp/architecture"
+    ]);
+  });
+
+  it("combines preview frames so cross-frame page links share one SVG", () => {
+    expect(buildRenderArguments("source.xal", "preview.svg", "svg", {
+      combineFrames: true,
+      servicesPath: "services.csv"
+    })).toEqual([
+      "render",
+      "source.xal",
+      "--format",
+      "svg",
+      "-o",
+      "preview.svg",
+      "--services",
+      "services.csv",
+      "--combine-frames"
     ]);
   });
 

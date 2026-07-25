@@ -1,9 +1,141 @@
-export type PreviewMode = "preview" | "diff";
+export type PreviewMode = "preview" | "markdown" | "diff";
+
+export type CliFeature =
+  | "validate"
+  | "export-svg"
+  | "export-pptx"
+  | "export-excalidraw"
+  | "export-pdf"
+  | "export-excel"
+  | "export-xyflow"
+  | "export-isoflow"
+  | "preview-markdown"
+  | "serve"
+  | "render-markdown"
+  | "generate-xal"
+  | "add-service"
+  | "add-services"
+  | "init"
+  | "version"
+  | "help"
+  | "completion-bash"
+  | "completion-fish"
+  | "completion-powershell"
+  | "completion-zsh"
+  | "custom";
+
+export const cliFeatures: readonly CliFeature[] = [
+  "validate",
+  "export-svg",
+  "export-pptx",
+  "export-excalidraw",
+  "export-pdf",
+  "export-excel",
+  "export-xyflow",
+  "export-isoflow",
+  "preview-markdown",
+  "serve",
+  "render-markdown",
+  "generate-xal",
+  "add-service",
+  "add-services",
+  "init",
+  "version",
+  "help",
+  "completion-bash",
+  "completion-fish",
+  "completion-powershell",
+  "completion-zsh",
+  "custom"
+];
+
+export const markdownPaperSizes = [
+  "auto",
+  "A5",
+  "A4",
+  "A3",
+  "A2",
+  "A1",
+  "Letter",
+  "Legal",
+  "Tabloid"
+] as const;
+
+export const markdownOrientations = [
+  "auto",
+  "portrait",
+  "landscape"
+] as const;
+
+export type MarkdownPaperSize = typeof markdownPaperSizes[number];
+export type MarkdownOrientation = typeof markdownOrientations[number];
+
+export interface MarkdownPreviewSettings {
+  paper: MarkdownPaperSize;
+  orientation: MarkdownOrientation;
+}
+
+export const defaultMarkdownPreviewSettings: Readonly<MarkdownPreviewSettings> = {
+  paper: "A4",
+  orientation: "portrait"
+};
+
+const markdownPaperDimensions = {
+  A5: [148, 210],
+  A4: [210, 297],
+  A3: [297, 420],
+  A2: [420, 594],
+  A1: [594, 841],
+  Letter: [215.9, 279.4],
+  Legal: [215.9, 355.6],
+  Tabloid: [279.4, 431.8]
+} as const;
+
+export function markdownPageDimensionsMm(
+  settings: MarkdownPreviewSettings
+): { width: number; height: number } | undefined {
+  if (settings.paper === "auto") {
+    return undefined;
+  }
+  const [portraitWidth, portraitHeight] = markdownPaperDimensions[settings.paper];
+  return settings.orientation === "landscape"
+    ? { width: portraitHeight, height: portraitWidth }
+    : { width: portraitWidth, height: portraitHeight };
+}
+
+export function parseMarkdownPreviewSettings(value: unknown): MarkdownPreviewSettings | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const candidate = value as Partial<MarkdownPreviewSettings>;
+  if (
+    !markdownPaperSizes.includes(candidate.paper as MarkdownPaperSize) ||
+    !markdownOrientations.includes(candidate.orientation as MarkdownOrientation)
+  ) {
+    return undefined;
+  }
+  return {
+    paper: candidate.paper as MarkdownPaperSize,
+    orientation: candidate.orientation as MarkdownOrientation
+  };
+}
 
 export interface DiffSummary {
   added: number;
   removed: number;
   modified: number;
+}
+
+export interface PreviewArtifact {
+  id: string;
+  title: string;
+  svg: string;
+  linksTo: string[];
+}
+
+export interface MarkdownPreviewAsset {
+  placeholder: string;
+  svg: string;
 }
 
 export interface PreviewPanelState {
@@ -14,6 +146,17 @@ export interface PreviewPanelState {
     sourceName?: string;
     sourcePath?: string;
     svg?: string;
+    artifacts?: PreviewArtifact[];
+    loading: boolean;
+    error?: string;
+  };
+  markdown: {
+    contentRevision: number;
+    sourceName?: string;
+    sourcePath?: string;
+    source?: string;
+    assets?: MarkdownPreviewAsset[];
+    settings: MarkdownPreviewSettings;
     loading: boolean;
     error?: string;
   };
@@ -44,6 +187,12 @@ export type PreviewWebviewMessage =
   | { command: "selectDiffFile"; side: "before" | "after" }
   | { command: "swapDiffFiles" }
   | { command: "showUpdates" }
+  | { command: "setMarkdownSettings"; settings: MarkdownPreviewSettings }
+  | {
+    command: "runCliFeature";
+    feature: CliFeature;
+    markdown?: MarkdownPreviewSettings;
+  }
   | { command: "refresh" };
 
 export interface ViewTransform {

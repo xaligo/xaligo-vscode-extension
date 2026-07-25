@@ -9,9 +9,11 @@ import {
 } from "./runtime-resolver";
 import {
   buildDiffArguments,
+  buildMarkdownRenderArguments,
   buildRenderArguments,
   diffOutputPaths,
   parseDiffSummary,
+  type XaligoRenderOptions,
   type XaligoRenderFormat
 } from "./xaligo-command";
 
@@ -37,7 +39,7 @@ export interface XaligoDiffResult {
   summary?: DiffSummary;
 }
 
-export const exportFormats: Record<"svg" | "pptx" | "excalidraw", ExportFormat> = {
+export const exportFormats: Record<XaligoRenderFormat, ExportFormat> = {
   svg: {
     renderFormat: "svg",
     extension: "svg",
@@ -55,10 +57,14 @@ export const exportFormats: Record<"svg" | "pptx" | "excalidraw", ExportFormat> 
     extension: "excalidraw",
     label: "Excalidraw",
     title: "Export xaligo Excalidraw"
-  }
+  },
+  pdf: { renderFormat: "pdf", extension: "pdf", label: "PDF", title: "Export xaligo PDF" },
+  excel: { renderFormat: "excel", extension: "xlsx", label: "Excel", title: "Export xaligo Excel" },
+  xyflow: { renderFormat: "xyflow", extension: "xyflow.json", label: "XYFlow", title: "Export xaligo XYFlow" },
+  isoflow: { renderFormat: "isoflow", extension: "isoflow.json", label: "Isoflow", title: "Export xaligo Isoflow" }
 };
 
-interface XaligoProcessResult {
+export interface XaligoProcessResult {
   stdout: string;
   stderr: string;
 }
@@ -82,14 +88,36 @@ export class XaligoRenderer {
     sourcePath: string,
     outputPath: string,
     format: XaligoRenderFormat,
+    signal?: AbortSignal,
+    options: XaligoRenderOptions = {}
+  ): Promise<void> {
+    const runtime = await this.runtimeResolver.resolve();
+    const servicesPath = await findNearestServicesCsv(sourcePath);
+    await runXaligo(
+      runtime,
+      buildRenderArguments(sourcePath, outputPath, format, {
+        ...options,
+        servicesPath: options.servicesPath ?? servicesPath
+      }),
+      30_000,
+      signal
+    );
+  }
+
+  async renderMarkdown(
+    sourcePath: string,
+    outputPath: string,
+    svgDirectory: string,
     signal?: AbortSignal
   ): Promise<void> {
     const runtime = await this.runtimeResolver.resolve();
     const servicesPath = await findNearestServicesCsv(sourcePath);
     await runXaligo(
       runtime,
-      buildRenderArguments(sourcePath, outputPath, format, servicesPath),
-      30_000,
+      buildMarkdownRenderArguments(sourcePath, outputPath, svgDirectory, {
+        servicesPath
+      }),
+      60_000,
       signal
     );
   }
@@ -141,6 +169,20 @@ export class XaligoRenderer {
 
   async export(sourcePath: string, outputPath: string, exportFormat: ExportFormat): Promise<void> {
     await this.render(sourcePath, outputPath, exportFormat.renderFormat);
+  }
+
+  async execute(args: string[], timeout = 60_000, signal?: AbortSignal): Promise<XaligoProcessResult> {
+    const runtime = await this.runtimeResolver.resolve();
+    return runXaligo(runtime, args, timeout, signal);
+  }
+
+  async terminalLaunch(args: string[]): Promise<{ binary: string; args: string[]; env: Record<string, string> }> {
+    const runtime = await this.runtimeResolver.resolve();
+    return {
+      binary: runtime.binary,
+      args,
+      env: { XALIGO_HOME: runtime.packageRoot }
+    };
   }
 }
 
