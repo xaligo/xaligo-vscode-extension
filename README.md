@@ -3,6 +3,13 @@
 VS Code language support, interactive SVG preview, and structural diff for the
 xaligo `.xal` diagram DSL.
 
+The extension exposes direct exports for SVG, PPTX, Excalidraw, PDF, Excel,
+XYFlow, and Isoflow, plus validation and runtime-version commands. Use
+**xaligo: Run CLI Feature…** from the command palette for `serve`, Markdown
+rendering, source generation, service insertion, project
+initialization, CLI help, Bash/Fish/PowerShell/Zsh completion, or any CLI
+command and flag supported by the selected xaligo runtime.
+
 ![xaligo logo](images/xaligo-readme-logo.png)
 
 ## Features
@@ -12,24 +19,50 @@ xaligo `.xal` diagram DSL.
 - Provides syntax highlighting for xaligo tags, attributes, strings, comments, XML entities, spacing classes, and connection shorthands.
 - Colors common xaligo and AWS group tags in the editor for faster scanning.
 - Adds comment, bracket, auto-closing, folding, and indentation behavior for `.xal` files.
-- Opens an SVG preview with a Preview / Diff menu bar.
+- Opens an SVG preview with a grouped, icon-first Preview / Diff menu panel.
+- Renders Markdown with the MIT-licensed Vue Markdown renderer and keeps
+  CLI-generated xaligo SVG diagrams as vector images.
 - Zooms around the pointer with Ctrl/Cmd + wheel and pans by dragging the canvas.
 - Compares two `.xal` files structurally and displays removed and added diagrams
   side by side with pale red and pale green highlights.
 - Refreshes the preview when the source file is saved.
-- Exports `.xal` diagrams to SVG, PPTX, and Excalidraw files.
+- Exports `.xal` diagrams to SVG, PPTX, Excalidraw, PDF, Excel, XYFlow, and
+  Isoflow files.
 - Uses `<name>.services.csv` or the nearest `services.csv` for preview labels and legends when present.
-- Updates the xaligo runtime and the VS Code extension independently from the preview menu or command palette.
+- Updates the xaligo runtime and the VS Code extension independently from the command palette.
 
 ## Preview
 
-Open a `.xal` file, then run **xaligo: Open Preview** from the command palette or the editor title/context menu.
+Open a `.xal`, `.md`, or `.markdown` file, then run **xaligo: Open Preview**
+from the command palette or select the xaligo icon in the editor title.
+For `.xal` files, the same command is also available from the editor context
+menu. Both diagram and Markdown previews open in the same xaligo Preview panel
+beside the source editor.
 
 Use Ctrl/Cmd + wheel over the diagram to zoom around the pointer. Drag the
 canvas with the primary mouse button, or focus it and use the arrow keys, to
-move it. The menu bar also provides
-zoom, 100%, Fit, Refresh, and Close controls. View position is retained when a
-file is rendered again.
+move it. Zoom controls remain on the canvas; the menu panel provides Preview,
+Diff, Fit, and Refresh controls. View position is retained when a file is
+rendered again.
+
+The menu is a one-button-wide vertical panel with **表示** and **出力** tabs.
+The display tab contains diagram, Markdown, and diff previews; the output tab
+contains Markdown conversion plus the seven diagram export formats. Hover or
+keyboard-focus any icon button to see its name. Validation, source generation,
+runtime management, and shell completion remain available from the command
+palette rather than the preview panel. Markdown preview defaults to A4 portrait.
+Use the **Markdown** controls in the display tab to select another paper size
+or automatic, portrait, or landscape orientation. These controls size the
+Markdown page itself; embedded SVG dimensions do not determine the page size.
+Markdown mode always occupies the full preview viewport and does not use the
+draggable diagram-card canvas.
+
+Preview loads every frame SVG emitted by the CLI and lays the frames out
+together on one interactive canvas. Connections whose endpoints belong to
+different frames remain visible as paired `to <frame>` / `from <frame>`
+page-link stubs and as connector lines between the frame cards. Drag a card
+header to arrange frames independently, or use the button in a card header to
+fit that frame to the preview window.
 
 ## Structural diff
 
@@ -56,8 +89,8 @@ native xaligo CLI.
 
 ## Updates
 
-Select **Updates…** in the preview menu, or run **xaligo: Manage Updates** from
-the command palette. Runtime and extension updates are separate operations:
+Run **xaligo: Manage Updates** from the command palette. Runtime and extension
+updates are separate operations:
 
 - **Update xaligo Runtime** checks the npm release metadata, verifies the npm
   package with its SHA-512 integrity value, verifies the platform binary with
