@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.16
+
+- Republished after 0.0.15 was already live on the Marketplace; no
+  functional changes beyond the English interface label fixes below.
+- Switched remaining preview interface labels to English.
+
 ## 0.0.15
 
 - Updated the bundled xaligo renderer dependency to `@xaligo/xaligo@0.1.25-main.34`.
