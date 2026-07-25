@@ -118,15 +118,13 @@ body {
 
 .menu-tab-button.el-button {
   width: 42px;
-  height: 30px;
+  height: 40px;
   margin: 0;
   padding: 0;
   border-color: transparent;
   border-radius: 7px;
   background: transparent;
-  color: var(--vscode-descriptionForeground);
-  font-size: 10px;
-  font-weight: 600;
+  color: var(--vscode-charts-green, #2ea043);
 }
 
 .menu-tab-button.el-button:hover,
@@ -134,16 +132,16 @@ body {
   border-color: var(--vscode-focusBorder);
   background: color-mix(
     in srgb,
-    var(--vscode-editor-foreground) 10%,
+    var(--vscode-charts-green, #2ea043) 16%,
     var(--vscode-editorWidget-background, var(--vscode-editor-background))
   );
-  color: var(--vscode-foreground);
+  color: var(--vscode-charts-green, #2ea043);
 }
 
 .menu-tab-button.el-button.active {
   border-color: var(--vscode-focusBorder);
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--vscode-charts-green, #2ea043);
+  color: #ffffff;
 }
 
 .menu-tab-panel,

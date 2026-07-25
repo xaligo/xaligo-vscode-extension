@@ -8,6 +8,7 @@ import {
   Connection,
   DataAnalysis,
   Document,
+  Download,
   EditPen,
   Loading,
   Menu,
@@ -19,6 +20,7 @@ import {
   Switch,
   FullScreen,
   Grid,
+  View,
   ZoomIn,
   ZoomOut
 } from "@element-plus/icons-vue";
@@ -905,36 +907,52 @@ onBeforeUnmount(() => {
         @scroll="hideMenuTooltip"
       >
         <div class="menu-tabs" role="tablist" aria-label="Menu sections" aria-orientation="vertical">
-          <el-button
-            id="menu-tab-view"
-            class="menu-tab-button"
-            :class="{ active: menuTab === 'view' }"
-            role="tab"
-            :aria-selected="menuTab === 'view'"
-            :tabindex="menuTab === 'view' ? 0 : -1"
-            aria-controls="menu-panel-view"
-            title="View"
-            @click="selectMenuTab('view')"
-            @keydown.down.prevent="focusMenuTab('output')"
-            @keydown.end.prevent="focusMenuTab('output')"
+          <span
+            class="menu-tooltip"
+            @mouseenter="showMenuTooltip('View', $event)"
+            @mouseleave="hideMenuTooltip"
+            @focusin="showMenuTooltip('View', $event)"
+            @focusout="hideMenuTooltip"
           >
-            View
-          </el-button>
-          <el-button
-            id="menu-tab-output"
-            class="menu-tab-button"
-            :class="{ active: menuTab === 'output' }"
-            role="tab"
-            :aria-selected="menuTab === 'output'"
-            :tabindex="menuTab === 'output' ? 0 : -1"
-            aria-controls="menu-panel-output"
-            title="Output"
-            @click="selectMenuTab('output')"
-            @keydown.up.prevent="focusMenuTab('view')"
-            @keydown.home.prevent="focusMenuTab('view')"
+            <el-button
+              id="menu-tab-view"
+              class="menu-tab-button"
+              :class="{ active: menuTab === 'view' }"
+              role="tab"
+              aria-label="View"
+              :aria-selected="menuTab === 'view'"
+              :tabindex="menuTab === 'view' ? 0 : -1"
+              aria-controls="menu-panel-view"
+              @click="selectMenuTab('view')"
+              @keydown.down.prevent="focusMenuTab('output')"
+              @keydown.end.prevent="focusMenuTab('output')"
+            >
+              <el-icon><View /></el-icon>
+            </el-button>
+          </span>
+          <span
+            class="menu-tooltip"
+            @mouseenter="showMenuTooltip('Output', $event)"
+            @mouseleave="hideMenuTooltip"
+            @focusin="showMenuTooltip('Output', $event)"
+            @focusout="hideMenuTooltip"
           >
-            Output
-          </el-button>
+            <el-button
+              id="menu-tab-output"
+              class="menu-tab-button"
+              :class="{ active: menuTab === 'output' }"
+              role="tab"
+              aria-label="Output"
+              :aria-selected="menuTab === 'output'"
+              :tabindex="menuTab === 'output' ? 0 : -1"
+              aria-controls="menu-panel-output"
+              @click="selectMenuTab('output')"
+              @keydown.up.prevent="focusMenuTab('view')"
+              @keydown.home.prevent="focusMenuTab('view')"
+            >
+              <el-icon><Download /></el-icon>
+            </el-button>
+          </span>
         </div>
 
         <section
