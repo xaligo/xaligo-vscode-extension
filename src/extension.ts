@@ -7,7 +7,13 @@ import { XaligoPreviewController } from "./preview";
 import type { CliFeature } from "./preview-contract";
 import { XaligoRuntimeResolver } from "./runtime-resolver";
 import { XaligoUpdates } from "./updates";
-import { buildGenerateXalArguments, isMarkdownFilePath } from "./xaligo-command";
+import {
+  buildGenerateXalArguments,
+  buildServeArguments,
+  defaultServePort,
+  isMarkdownFilePath,
+  normalizeServePort
+} from "./xaligo-command";
 import {
   type ExportFormat,
   exportFormats,
@@ -617,7 +623,9 @@ async function prepareCliFeatureArguments(
         { "xaligo or Markdown": ["xal", "md", "markdown"] },
         defaultUri
       );
-    return serveSource ? [...baseArgs, serveSource] : undefined;
+    return serveSource
+      ? buildServeArguments(serveSource, configuredServePort())
+      : undefined;
   }
   if (feature === "render-markdown") {
     const markdownPath = isMarkdownFilePath(sourcePath)
@@ -696,6 +704,12 @@ async function prepareCliFeatureArguments(
       : undefined;
   }
   return [...baseArgs];
+}
+
+function configuredServePort(): number {
+  const configured = vscode.workspace.getConfiguration("xaligo")
+    .get<unknown>("servePort", defaultServePort);
+  return normalizeServePort(configured);
 }
 
 async function selectCliFile(

@@ -13,6 +13,14 @@ interface ExtensionManifest {
         when?: string;
       }>;
     };
+    configuration: {
+      properties: Record<string, {
+        type: string;
+        default: unknown;
+        minimum?: number;
+        maximum?: number;
+      }>;
+    };
   };
 }
 
@@ -39,5 +47,14 @@ describe("preview editor title action", () => {
     expect(menu?.when).toBe(
       "resourceLangId == xal || resourceExtname == .md || resourceExtname == .markdown"
     );
+  });
+
+  it("contributes a bounded serve port setting with the current default", () => {
+    expect(manifest.contributes.configuration.properties["xaligo.servePort"]).toMatchObject({
+      type: "integer",
+      default: 8080,
+      minimum: 1,
+      maximum: 65535
+    });
   });
 });

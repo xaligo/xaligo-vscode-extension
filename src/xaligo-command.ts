@@ -26,8 +26,31 @@ export interface XaligoExecutionOutput {
   stderr: string;
 }
 
+export const defaultServePort = 8080;
+
 export function isMarkdownFilePath(filePath: string): boolean {
   return [".md", ".markdown"].includes(path.extname(filePath).toLowerCase());
+}
+
+export function normalizeServePort(value: unknown): number {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 65535
+    ? value
+    : defaultServePort;
+}
+
+export function buildServeArguments(
+  sourcePath: string,
+  port: number = defaultServePort
+): string[] {
+  return [
+    "serve",
+    sourcePath,
+    "--address",
+    `127.0.0.1:${normalizeServePort(port)}`
+  ];
 }
 
 export function buildMarkdownRenderArguments(

@@ -358,6 +358,14 @@
           "maximum": 3600,
           "scope": "machine-overridable",
           "description": "Maximum time in seconds for renderer, validation, Markdown, and diff commands. Increase this when Windows security scanning or large documents need more time."
+        },
+        "xaligo.servePort": {
+          "type": "integer",
+          "default": 8080,
+          "minimum": 1,
+          "maximum": 65535,
+          "scope": "machine-overridable",
+          "description": "HTTP port used by xaligo: Run CLI Feature… > Serve live preview."
         }
       }
     }

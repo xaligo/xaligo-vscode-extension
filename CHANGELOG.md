@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added `xaligo.servePort` for choosing the HTTP port used by the Serve live
+  preview CLI feature while retaining port `8080` as the default.
+
 ## 0.0.17
 
 - Fixed Windows and custom-CLI execution so custom binaries use their own

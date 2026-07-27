@@ -96,6 +96,10 @@ Renderer commands default to a 120-second timeout and can be cancelled from
 progress notifications. Set `xaligo.commandTimeoutSeconds` higher for very
 large documents or hosts where Windows security scanning delays a new binary.
 
+The **Serve live preview** CLI feature listens on port `8080` by default. Set
+`xaligo.servePort` to another port from VS Code Settings; the generated command
+remains editable before the extension launches it in a terminal.
+
 ## Updates
 
 Run **xaligo: Manage Updates** from the command palette. Runtime and extension
