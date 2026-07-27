@@ -1,12 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
-import { createXaligoLogger } from "./logger";
+import { formatCommandArgument, parseCommandArguments } from "./cli-input";
+import { createXaligoLogger, xaligoLogger } from "./logger";
 import { XaligoPreviewController } from "./preview";
 import type { CliFeature } from "./preview-contract";
 import { XaligoRuntimeResolver } from "./runtime-resolver";
 import { XaligoUpdates } from "./updates";
-import { isMarkdownFilePath } from "./xaligo-command";
+import { buildGenerateXalArguments, isMarkdownFilePath } from "./xaligo-command";
 import {
   type ExportFormat,
   exportFormats,
@@ -31,12 +32,10 @@ const exportIsoflowCommand = "xaligo.exportIsoflow";
 const validateCommand = "xaligo.validate";
 const showVersionCommand = "xaligo.showVersion";
 const runCliCommand = "xaligo.runCliCommand";
-const selectFileIconThemeCommand = "xaligo.selectFileIconTheme";
 const showUpdatesCommand = "xaligo.showUpdates";
 const updateRuntimeCommand = "xaligo.updateRuntime";
 const updateExtensionCommand = "xaligo.updateExtension";
 const showOutputChannelCommand = "xaligo.showOutputChannel";
-const fileIconThemePromptStateKey = "xaligo.fileIconThemePromptDismissed";
 const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
 const commentPattern = /<!--[\s\S]*?-->/g;
 
@@ -102,18 +101,28 @@ export function activate(context: vscode.ExtensionContext): void {
       await runCliFeature(renderer, document, feature);
     }
   );
+  const registerAsyncCommand = (
+    command: string,
+    action: () => Promise<unknown>
+  ) => {
+    context.subscriptions.push(vscode.commands.registerCommand(command, () => (
+      action().catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`${command} failed: ${message}`);
+        return vscode.window.showErrorMessage(`xaligo command failed: ${message}`);
+      })
+    )));
+  };
 
   context.subscriptions.push(new XaligoTagColorController());
   context.subscriptions.push(previewController);
-  context.subscriptions.push(vscode.commands.registerCommand(previewCommand, () => {
-    void openPreviewForDocument(
+  registerAsyncCommand(previewCommand, () => (
+    openPreviewForDocument(
       previewController,
       vscode.window.activeTextEditor?.document
-    );
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(diffPreviewCommand, () => {
-    void previewController.openDiffPreview();
-  }));
+    )
+  ));
+  registerAsyncCommand(diffPreviewCommand, () => previewController.openDiffPreview());
   context.subscriptions.push(vscode.commands.registerCommand(previewZoomInCommand, () => {
     previewController.zoomBy(0.1);
   }));
@@ -129,62 +138,47 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.commands.registerCommand(previewCloseCommand, () => {
     previewController.closePreview();
   }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportSvgCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.svg);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportPptxCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pptx);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportExcalidrawCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excalidraw);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportPdfCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pdf);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportExcelCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excel);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportXyflowCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.xyflow);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(exportIsoflowCommand, () => {
-    void exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.isoflow);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(validateCommand, () => {
-    void validateDocument(renderer, vscode.window.activeTextEditor?.document);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(showVersionCommand, () => {
-    void showRuntimeVersion(renderer);
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(runCliCommand, () => {
+  registerAsyncCommand(exportSvgCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.svg)
+  ));
+  registerAsyncCommand(exportPptxCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pptx)
+  ));
+  registerAsyncCommand(exportExcalidrawCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excalidraw)
+  ));
+  registerAsyncCommand(exportPdfCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pdf)
+  ));
+  registerAsyncCommand(exportExcelCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excel)
+  ));
+  registerAsyncCommand(exportXyflowCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.xyflow)
+  ));
+  registerAsyncCommand(exportIsoflowCommand, () => (
+    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.isoflow)
+  ));
+  registerAsyncCommand(validateCommand, () => (
+    validateDocument(renderer, vscode.window.activeTextEditor?.document)
+  ));
+  registerAsyncCommand(showVersionCommand, () => showRuntimeVersion(renderer));
+  registerAsyncCommand(runCliCommand, () => {
     const document = vscode.window.activeTextEditor?.document;
-    void runCliFeature(
+    return runCliFeature(
       renderer,
       document,
       undefined,
       () => previewController.openMarkdownPreview(document)
     );
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(selectFileIconThemeCommand, () => {
-    void vscode.commands.executeCommand("workbench.action.selectIconTheme");
-  }));
-  context.subscriptions.push(vscode.commands.registerCommand(
-    showUpdatesCommand,
-    () => updates.showMenu()
-  ));
-  context.subscriptions.push(vscode.commands.registerCommand(
-    updateRuntimeCommand,
-    () => updates.updateRuntime()
-  ));
-  context.subscriptions.push(vscode.commands.registerCommand(
-    updateExtensionCommand,
-    () => updates.updateExtension()
-  ));
+  });
+  registerAsyncCommand(showUpdatesCommand, () => updates.showMenu());
+  registerAsyncCommand(updateRuntimeCommand, () => updates.updateRuntime());
+  registerAsyncCommand(updateExtensionCommand, () => updates.updateExtension());
   context.subscriptions.push(vscode.commands.registerCommand(showOutputChannelCommand, () => {
     logger.show();
   }));
 
-  void showFileIconThemeHint(context);
 }
 
 export function deactivate(): void {}
@@ -192,12 +186,19 @@ export function deactivate(): void {}
 class XaligoTagColorController implements vscode.Disposable {
   private readonly decorationTypes = new Map<string, vscode.TextEditorDecorationType>();
   private readonly subscriptions: vscode.Disposable[] = [];
-  private updateTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly updateTimers = new Map<vscode.TextEditor, ReturnType<typeof setTimeout>>();
 
   constructor() {
     this.subscriptions.push(
       vscode.window.onDidChangeActiveTextEditor((editor) => this.updateEditor(editor)),
       vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        const visible = new Set(editors);
+        for (const [editor, timer] of this.updateTimers) {
+          if (!visible.has(editor)) {
+            clearTimeout(timer);
+            this.updateTimers.delete(editor);
+          }
+        }
         for (const editor of editors) {
           this.updateEditor(editor);
         }
@@ -217,9 +218,10 @@ class XaligoTagColorController implements vscode.Disposable {
   }
 
   dispose(): void {
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
+    for (const timer of this.updateTimers.values()) {
+      clearTimeout(timer);
     }
+    this.updateTimers.clear();
     for (const subscription of this.subscriptions) {
       subscription.dispose();
     }
@@ -229,14 +231,24 @@ class XaligoTagColorController implements vscode.Disposable {
   }
 
   private scheduleUpdate(editor: vscode.TextEditor): void {
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
+    const existing = this.updateTimers.get(editor);
+    if (existing) {
+      clearTimeout(existing);
     }
-    this.updateTimer = setTimeout(() => this.updateEditor(editor), 80);
+    this.updateTimers.set(editor, setTimeout(() => {
+      this.updateTimers.delete(editor);
+      this.updateEditor(editor);
+    }, 80));
   }
 
   private updateEditor(editor: vscode.TextEditor | undefined): void {
-    if (!editor || editor.document.languageId !== "xal") {
+    if (!editor) {
+      return;
+    }
+    if (editor.document.languageId !== "xal") {
+      for (const decorationType of this.decorationTypes.values()) {
+        editor.setDecorations(decorationType, []);
+      }
       return;
     }
 
@@ -318,16 +330,40 @@ async function exportDocument(
     {
       location: vscode.ProgressLocation.Notification,
       title: `Exporting ${exportFormat.label}`,
-      cancellable: false
+      cancellable: true
     },
-    async () => {
+    async (_progress, token) => {
+      const abortController = new AbortController();
+      const cancellationSubscription = token.onCancellationRequested(() => abortController.abort());
       try {
         await fs.mkdir(path.dirname(outputUri.fsPath), { recursive: true });
-        await renderer.export(sourcePath, outputUri.fsPath, exportFormat);
-        vscode.window.showInformationMessage(`Exported ${exportFormat.label}: ${outputUri.fsPath}`);
+        const result = await renderer.export(
+          sourcePath,
+          outputUri.fsPath,
+          exportFormat,
+          abortController.signal
+        );
+        const destination = result.outputPaths.length === 1
+          ? result.outputPaths[0]
+          : `${result.outputPaths.length} files in ${path.dirname(result.outputPaths[0])}: ` +
+            result.outputPaths.map((outputPath) => path.basename(outputPath)).join(", ");
+        xaligoLogger().info(
+          `exported ${exportFormat.label}:\n${result.outputPaths.join("\n")}`
+        );
+        const warningSuffix = result.warnings.length > 0
+          ? " Completed with warnings; see the xaligo output channel."
+          : "";
+        vscode.window.showInformationMessage(
+          `Exported ${exportFormat.label}: ${destination}.${warningSuffix}`
+        );
       } catch (error) {
+        if (abortController.signal.aborted || isAbortError(error)) {
+          return;
+        }
         const message = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage(`Failed to export ${exportFormat.label}: ${message}`);
+      } finally {
+        cancellationSubscription.dispose();
       }
     }
   );
@@ -348,8 +384,13 @@ async function validateDocument(
     { location: vscode.ProgressLocation.Notification, title: "Validating xaligo diagram" },
     async () => {
       try {
-        await renderer.execute(["validate", document.uri.fsPath]);
-        vscode.window.showInformationMessage(`Valid: ${path.basename(document.uri.fsPath)}`);
+        const result = await renderer.execute(["validate", document.uri.fsPath]);
+        const warningSuffix = result.warnings.length > 0
+          ? " (with warnings; see the xaligo output channel)"
+          : "";
+        vscode.window.showInformationMessage(
+          `Valid: ${path.basename(document.uri.fsPath)}${warningSuffix}`
+        );
       } catch (error) {
         vscode.window.showErrorMessage(`Validation failed: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -509,6 +550,15 @@ async function runCliFeature(
     }
     return;
   }
+  if (
+    (selected.feature === "serve" || selected.feature === "render-markdown") &&
+    document?.uri.scheme === "file" &&
+    document.isDirty &&
+    !await document.save()
+  ) {
+    vscode.window.showWarningMessage("Save the selected document before running xaligo.");
+    return;
+  }
   const preparedArgs = await prepareCliFeatureArguments(
     selected.feature,
     selected.args,
@@ -570,11 +620,13 @@ async function prepareCliFeatureArguments(
     return serveSource ? [...baseArgs, serveSource] : undefined;
   }
   if (feature === "render-markdown") {
-    const markdownPath = await selectCliFile(
-      "Select Markdown to render",
-      { Markdown: ["md", "markdown"] },
-      defaultUri
-    );
+    const markdownPath = isMarkdownFilePath(sourcePath)
+      ? sourcePath
+      : await selectCliFile(
+        "Select Markdown to render",
+        { Markdown: ["md", "markdown"] },
+        defaultUri
+      );
     if (!markdownPath) {
       return undefined;
     }
@@ -599,7 +651,7 @@ async function prepareCliFeatureArguments(
       filters: { xaligo: ["xal"] },
       saveLabel: "Generate"
     });
-    return outputUri ? [...baseArgs, "--output", outputUri.fsPath] : undefined;
+    return outputUri ? buildGenerateXalArguments(outputUri.fsPath) : undefined;
   }
   if (feature === "add-service" || feature === "add-services") {
     const targetPath = await selectCliFile(
@@ -680,52 +732,6 @@ function isFileMarkdownDocument(
   );
 }
 
-function formatCommandArgument(argument: string): string {
-  return /^[A-Za-z0-9_./:@%+=,-]+$/.test(argument)
-    ? argument
-    : `"${argument.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"")}"`;
-}
-
-function parseCommandArguments(input: string): string[] {
-  const args: string[] = [];
-  let current = "";
-  let quote: "'" | "\"" | undefined;
-  let escaped = false;
-  for (const character of input.trim()) {
-    if (escaped) {
-      current += character;
-      escaped = false;
-    } else if (character === "\\") {
-      escaped = true;
-    } else if (quote) {
-      if (character === quote) {
-        quote = undefined;
-      } else {
-        current += character;
-      }
-    } else if (character === "'" || character === "\"") {
-      quote = character;
-    } else if (/\s/.test(character)) {
-      if (current) {
-        args.push(current);
-        current = "";
-      }
-    } else {
-      current += character;
-    }
-  }
-  if (escaped || quote) {
-    throw new Error("CLI arguments contain an unfinished escape or quote.");
-  }
-  if (current) {
-    args.push(current);
-  }
-  if (args.length === 0) {
-    throw new Error("Enter at least one CLI argument.");
-  }
-  return args;
-}
-
 function getCommentRanges(text: string): Array<[number, number]> {
   return Array.from(text.matchAll(commentPattern), (match) => {
     const start = match.index ?? 0;
@@ -750,24 +756,9 @@ function stableHash(value: string): number {
   return hash;
 }
 
-async function showFileIconThemeHint(context: vscode.ExtensionContext): Promise<void> {
-  if (context.globalState.get<boolean>(fileIconThemePromptStateKey)) {
-    return;
-  }
-
-  const activeIconTheme = vscode.workspace.getConfiguration("workbench").get<string>("iconTheme");
-  if (activeIconTheme === "xaligo-icons") {
-    await context.globalState.update(fileIconThemePromptStateKey, true);
-    return;
-  }
-
-  const selection = await vscode.window.showInformationMessage(
-    "xaligo includes a .xal file icon. Some file icon themes override language icons, so select the bundled xaligo theme if the icon does not appear.",
-    "Select Theme",
-    "Not Now"
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.name === "AbortError" ||
+    ("code" in error && error.code === "ABORT_ERR")
   );
-  if (selection === "Select Theme") {
-    await vscode.commands.executeCommand("workbench.action.selectIconTheme");
-  }
-  await context.globalState.update(fileIconThemePromptStateKey, true);
 }

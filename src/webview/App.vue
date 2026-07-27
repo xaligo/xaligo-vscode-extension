@@ -40,6 +40,7 @@ import {
   zoomAtPoint
 } from "../preview-contract";
 import { useViewTransform } from "./composables/useViewTransform";
+import { svgDimensions } from "./svg-dimensions";
 
 declare function acquireVsCodeApi<State>(): {
   getState(): State | undefined;
@@ -49,6 +50,7 @@ declare function acquireVsCodeApi<State>(): {
 
 interface PersistedPreviewState {
   transforms: Record<string, ViewTransform>;
+  cardPositions?: Record<string, Record<string, CardPosition>>;
 }
 
 interface DiagramCard {
@@ -146,6 +148,7 @@ let renderToken = 0;
 let positionViewKey = "";
 let cardDrag: CardDrag | undefined;
 let svgOnlyDrag: SvgOnlyDrag | undefined;
+let svgOnlyPreviousFocus: HTMLElement | undefined;
 
 const cardGap = 48;
 const cardHeaderHeight = 36;
@@ -226,8 +229,7 @@ function safeArtifactId(id: string): string {
   return id.trim().replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-const exportActions: CliMenuAction[] = [
-  { feature: "render-markdown", label: "Render Markdown", icon: Memo },
+const diagramExportActions: CliMenuAction[] = [
   { feature: "export-svg", label: "Export SVG", icon: Picture },
   { feature: "export-pptx", label: "Export PowerPoint", icon: DataAnalysis },
   { feature: "export-excalidraw", label: "Export Excalidraw", icon: EditPen },
@@ -236,6 +238,15 @@ const exportActions: CliMenuAction[] = [
   { feature: "export-xyflow", label: "Export XYFlow", icon: Share },
   { feature: "export-isoflow", label: "Export Isoflow", icon: Box }
 ];
+const exportActions = computed<CliMenuAction[]>(() => {
+  if (state.value.mode === "preview") {
+    return diagramExportActions;
+  }
+  if (state.value.mode === "markdown") {
+    return [{ feature: "render-markdown", label: "Render Markdown", icon: Memo }];
+  }
+  return [];
+});
 
 const loading = computed(() => {
   switch (state.value.mode) {
@@ -285,25 +296,29 @@ function svgToUrl(svg: string): string {
   return url;
 }
 
+function encodedAssetToUrl(data: string, mediaType: string): string {
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const url = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
+  objectUrls.push(url);
+  return url;
+}
+
 function resolveMarkdownAssets(
   source: string,
   assets: NonNullable<PreviewPanelState["markdown"]["assets"]>
 ): string {
   let resolved = source;
   for (const asset of assets) {
-    resolved = resolved.replaceAll(asset.placeholder, svgToUrl(asset.svg));
+    resolved = resolved.replaceAll(
+      asset.placeholder,
+      encodedAssetToUrl(asset.data, asset.mediaType)
+    );
   }
   return resolved;
-}
-
-function svgDimensions(svg: string): { width: number; height: number } {
-  const root = /<svg\b[^>]*>/i.exec(svg)?.[0] ?? "";
-  const width = Number.parseFloat(/\bwidth=["']([0-9.]+)/i.exec(root)?.[1] ?? "");
-  const height = Number.parseFloat(/\bheight=["']([0-9.]+)/i.exec(root)?.[1] ?? "");
-  return {
-    width: Number.isFinite(width) && width > 0 ? width : 640,
-    height: Number.isFinite(height) && height > 0 ? height : 480
-  };
 }
 
 function createDiagramCard(
@@ -331,6 +346,19 @@ function layoutCards(cards: DiagramCard[], viewKey: string): void {
       delete cardPositions[key];
     }
     positionViewKey = viewKey;
+    const persistedPositions = vscode.getState()?.cardPositions?.[viewKey];
+    if (persistedPositions && typeof persistedPositions === "object") {
+      for (const card of cards) {
+        const position = persistedPositions[card.key];
+        if (
+          position &&
+          Number.isFinite(position.x) &&
+          Number.isFinite(position.y)
+        ) {
+          cardPositions[card.key] = { x: position.x, y: position.y };
+        }
+      }
+    }
   }
   const activeKeys = new Set(cards.map((card) => card.key));
   for (const key of Object.keys(cardPositions)) {
@@ -345,6 +373,28 @@ function layoutCards(cards: DiagramCard[], viewKey: string): void {
     }
     nextX = Math.max(nextX, cardPositions[card.key].x + card.width + cardGap);
   }
+}
+
+function persistCardPositions(): void {
+  if (!positionViewKey) {
+    return;
+  }
+  const current = vscode.getState() ?? { transforms: {} };
+  const positionsByView = {
+    ...(current.cardPositions ?? {}),
+    [positionViewKey]: Object.fromEntries(
+      Object.entries(cardPositions)
+        .filter(([, position]) => Number.isFinite(position.x) && Number.isFinite(position.y))
+        .map(([key, position]) => [key, { x: position.x, y: position.y }])
+    )
+  };
+  const keys = Object.keys(positionsByView);
+  for (const key of keys.slice(0, Math.max(0, keys.length - 32))) {
+    if (key !== positionViewKey) {
+      delete positionsByView[key];
+    }
+  }
+  vscode.setState({ ...current, cardPositions: positionsByView });
 }
 
 function cardStyle(card: DiagramCard): Record<string, string> {
@@ -402,6 +452,7 @@ function finishCardDrag(event: PointerEvent): void {
     target.closest(".diagram-card")?.classList.remove("card-dragging");
   }
   cardDrag = undefined;
+  persistCardPositions();
 }
 
 function fitCard(card: DiagramCard): void {
@@ -418,6 +469,9 @@ function fitAllCards(): void {
 }
 
 function showSvgOnly(card: DiagramCard): void {
+  svgOnlyPreviousFocus = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : undefined;
   svgOnlyCardKey.value = card.key;
   void nextTick(() => {
     svgOnlyViewRef.value?.focus();
@@ -428,6 +482,13 @@ function showSvgOnly(card: DiagramCard): void {
 function closeSvgOnly(): void {
   svgOnlyCardKey.value = undefined;
   svgOnlyDrag = undefined;
+  const restoreTarget = svgOnlyPreviousFocus;
+  svgOnlyPreviousFocus = undefined;
+  void nextTick(() => {
+    if (restoreTarget?.isConnected) {
+      restoreTarget.focus();
+    }
+  });
 }
 
 function applySvgOnlyTransform(next: ViewTransform): void {
@@ -527,6 +588,31 @@ function onWindowKeydown(event: KeyboardEvent): void {
   if (event.key === "Escape" && svgOnlyCardKey.value) {
     closeSvgOnly();
     event.preventDefault();
+    return;
+  }
+  if (event.key === "Tab" && svgOnlyCardKey.value && svgOnlyViewRef.value) {
+    const focusable = Array.from(
+      svgOnlyViewRef.value.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    if (focusable.length === 0) {
+      event.preventDefault();
+      svgOnlyViewRef.value.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (
+      event.shiftKey &&
+      (document.activeElement === first || document.activeElement === svgOnlyViewRef.value)
+    ) {
+      last.focus();
+      event.preventDefault();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      first.focus();
+      event.preventDefault();
+    }
   }
 }
 
@@ -766,6 +852,17 @@ function runCliFeature(feature: CliFeature): void {
   vscode.postMessage({ command: "runCliFeature", feature });
 }
 
+function onMarkdownClick(event: MouseEvent): void {
+  const target = event.target;
+  const anchor = target instanceof Element ? target.closest("a") : undefined;
+  const href = anchor?.getAttribute("href")?.trim();
+  if (!href || href.startsWith("#")) {
+    return;
+  }
+  event.preventDefault();
+  vscode.postMessage({ command: "openLink", href });
+}
+
 function previewMarkdown(): void {
   vscode.postMessage({
     command: "runCliFeature",
@@ -866,6 +963,7 @@ function onMessage(event: MessageEvent<PreviewHostMessage>): void {
 
 function onBeforeUnload(): void {
   viewTransform.flushBeforeUnload();
+  persistCardPositions();
   revokeObjectUrls();
 }
 
@@ -1213,6 +1311,9 @@ onBeforeUnmount(() => {
                 <el-icon><component :is="action.icon" /></el-icon>
               </el-button>
             </span>
+            <p v-if="exportActions.length === 0" class="menu-empty-message">
+              No output actions are available for structural diff.
+            </p>
           </div>
         </section>
       </section>
@@ -1250,6 +1351,7 @@ onBeforeUnmount(() => {
           v-if="markdownSource"
           class="markdown-page-sheet markdown-document"
           :aria-label="`Markdown preview: ${state.markdown.sourceName ?? 'Markdown'}`"
+          @click="onMarkdownClick"
         >
           <VueMarkdown :source="markdownSource" :options="markdownOptions" />
         </article>

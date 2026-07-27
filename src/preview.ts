@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
+import { xaligoLogger } from "./logger";
 import { readRenderedMarkdownPreview } from "./markdown-preview";
 import type {
   CliFeature,
@@ -244,7 +245,11 @@ export class XaligoPreviewController implements vscode.Disposable {
     panel.webview.html = previewHtml(panel.webview, this.context.extensionUri);
     this.panelSubscriptions.push(
       panel.webview.onDidReceiveMessage((message: unknown) => {
-        void this.handleWebviewMessage(message);
+        void this.handleWebviewMessage(message).catch((error) => {
+          const message = errorMessage(error);
+          xaligoLogger().error(`preview action failed: ${message}`);
+          void vscode.window.showErrorMessage(`xaligo preview action failed: ${message}`);
+        });
       }),
       panel.onDidDispose(() => {
         this.cancelPreviewRender();
@@ -313,6 +318,11 @@ export class XaligoPreviewController implements vscode.Disposable {
           }
         }
         break;
+      case "openLink":
+        if (typeof candidate.href === "string") {
+          await this.openMarkdownLink(candidate.href);
+        }
+        break;
       case "refresh":
         if (this.mode === "diff") {
           await this.renderDiff();
@@ -362,7 +372,36 @@ export class XaligoPreviewController implements vscode.Disposable {
   }
 
   private activeSourceUri(): vscode.Uri | undefined {
-    return this.mode === "markdown" ? this.markdownSourceUri : this.previewSourceUri;
+    if (this.mode === "preview") {
+      return this.previewSourceUri;
+    }
+    if (this.mode === "markdown") {
+      return this.markdownSourceUri;
+    }
+    return undefined;
+  }
+
+  private async openMarkdownLink(href: string): Promise<void> {
+    const value = href.trim();
+    if (!value || value.startsWith("#")) {
+      return;
+    }
+    if (/^(?:https?|mailto):/i.test(value)) {
+      await vscode.env.openExternal(vscode.Uri.parse(value, true));
+      return;
+    }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^file:/i.test(value)) {
+      throw new Error(`Unsupported Markdown link protocol: ${value}`);
+    }
+    const source = this.markdownSourceUri;
+    if (!source) {
+      return;
+    }
+    const targetWithoutFragment = value.split("#", 1)[0];
+    const target = /^file:/i.test(targetWithoutFragment)
+      ? vscode.Uri.parse(targetWithoutFragment, true)
+      : vscode.Uri.file(path.resolve(path.dirname(source.fsPath), decodeUriPath(targetWithoutFragment)));
+    await vscode.commands.executeCommand("vscode.open", target);
   }
 
   private async selectDiffFile(side: DiffSide, renderWhenReady = true): Promise<boolean> {
@@ -443,8 +482,17 @@ export class XaligoPreviewController implements vscode.Disposable {
     try {
       invocationDirectory = await createTemporaryOutputDirectory(outputRoot, digest);
       const outputPath = path.join(invocationDirectory, "preview.svg");
-      await this.renderer.render(source.fsPath, outputPath, "svg", abortController.signal);
-      const artifacts = await readPreviewArtifacts(invocationDirectory, outputPath);
+      const renderResult = await this.renderer.render(
+        source.fsPath,
+        outputPath,
+        "svg",
+        abortController.signal
+      );
+      const artifacts = await readPreviewArtifacts(
+        invocationDirectory,
+        outputPath,
+        renderResult.outputPaths
+      );
       if (generation !== this.previewGeneration) {
         return;
       }
@@ -503,7 +551,11 @@ export class XaligoPreviewController implements vscode.Disposable {
       if (generation !== this.markdownGeneration) {
         return;
       }
-      const rendered = await readRenderedMarkdownPreview(outputPath, svgDirectory);
+      const rendered = await readRenderedMarkdownPreview(
+        outputPath,
+        svgDirectory,
+        source.fsPath
+      );
       if (generation !== this.markdownGeneration) {
         return;
       }
@@ -719,10 +771,10 @@ function previewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string 
   const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "webview", "preview.css"));
   const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "webview", "preview.js"));
   return `<!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src blob:; style-src ${webview.cspSource}; script-src 'nonce-${scriptNonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src blob: data: https:; style-src ${webview.cspSource}; script-src 'nonce-${scriptNonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${stylesheetUri}">
   <title>xaligo Preview</title>
@@ -799,4 +851,12 @@ async function filesReferToSamePath(left: vscode.Uri, right: vscode.Uri): Promis
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function decodeUriPath(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }

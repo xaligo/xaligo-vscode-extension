@@ -9,8 +9,9 @@ describe("Markdown preview document", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "xaligo-markdown-preview-"));
     const svgDirectory = path.join(root, "assets");
     const markdownPath = path.join(root, "document.md");
+    const imageDirectory = path.join(root, "images");
     try {
-      await mkdir(svgDirectory);
+      await Promise.all([mkdir(svgDirectory), mkdir(imageDirectory)]);
       await Promise.all([
         writeFile(
           markdownPath,
@@ -19,18 +20,55 @@ describe("Markdown preview document", () => {
         writeFile(
           path.join(svgDirectory, "guide-1.svg"),
           '<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
-        )
+        ),
+        writeFile(path.join(imageDirectory, "photo.png"), Buffer.from("89504e470d0a1a0a", "hex"))
       ]);
 
       const preview = await readRenderedMarkdownPreview(markdownPath, svgDirectory);
 
       expect(preview.source).toContain("![](xaligo-preview-svg:asset-1)");
-      expect(preview.source).toContain("![External](images/photo.png)");
+      expect(preview.source).toContain("![External](xaligo-preview-image:asset-2)");
       expect(preview.source).not.toContain("assets/guide-1.svg");
-      expect(preview.assets).toEqual([{
-        placeholder: "xaligo-preview-svg:asset-1",
-        svg: '<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
-      }]);
+      expect(preview.assets).toEqual([
+        {
+          placeholder: "xaligo-preview-svg:asset-1",
+          mediaType: "image/svg+xml",
+          data: Buffer.from(
+            '<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
+          ).toString("base64")
+        },
+        {
+          placeholder: "xaligo-preview-image:asset-2",
+          mediaType: "image/png",
+          data: Buffer.from("89504e470d0a1a0a", "hex").toString("base64")
+        }
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps HTTPS images and embeds percent-encoded local image paths", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xaligo-markdown-preview-"));
+    const svgDirectory = path.join(root, "assets");
+    const markdownPath = path.join(root, "document.md");
+    const sourcePath = path.join(root, "source", "guide.md");
+    try {
+      await Promise.all([
+        mkdir(svgDirectory),
+        mkdir(path.join(root, "source", "images"), { recursive: true })
+      ]);
+      await Promise.all([
+        writeFile(
+          markdownPath,
+          "![Local](<images/my%20image.webp>)\n![Remote](https://example.com/image.png)\n"
+        ),
+        writeFile(path.join(root, "source", "images", "my image.webp"), "webp")
+      ]);
+      const preview = await readRenderedMarkdownPreview(markdownPath, svgDirectory, sourcePath);
+      expect(preview.source).toContain("![Local](xaligo-preview-image:asset-1)");
+      expect(preview.source).toContain("![Remote](https://example.com/image.png)");
+      expect(preview.assets[0]).toMatchObject({ mediaType: "image/webp" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

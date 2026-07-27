@@ -135,7 +135,8 @@ export interface PreviewArtifact {
 
 export interface MarkdownPreviewAsset {
   placeholder: string;
-  svg: string;
+  mediaType: string;
+  data: string;
 }
 
 export interface PreviewPanelState {
@@ -193,6 +194,7 @@ export type PreviewWebviewMessage =
     feature: CliFeature;
     markdown?: MarkdownPreviewSettings;
   }
+  | { command: "openLink"; href: string }
   | { command: "refresh" };
 
 export interface ViewTransform {

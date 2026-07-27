@@ -81,7 +81,11 @@
       "patterns": [
         {
           "name": "keyword.control.layout.xaligo",
-          "match": "\\b(?:frames|frame|container|row|col)\\b"
+          "match": "\\b(?:xaligo|metadata|entry|imports|import|styles|style|data|frames|frame|container|row|col)\\b"
+        },
+        {
+          "name": "support.type.data.xaligo",
+          "match": "\\b(?:table-data|table|header|cell|database-schema|database|entity|column|primary-key|foreign-key)\\b"
         },
         {
           "name": "entity.name.type.cloud.xaligo",
@@ -101,7 +105,15 @@
         },
         {
           "name": "support.type.shape.xaligo",
-          "match": "\\b(?:rectangle|port)\\b"
+          "match": "\\b(?:rectangle|port|card|panel|text)\\b"
+        },
+        {
+          "name": "entity.name.type.uml.xaligo",
+          "match": "\\b(?:uml-model|uml|class-diagram|component-diagram|activity-diagram|state-machine-diagram|sequence-diagram|partition|class|interface|enumeration|component|artifact|initial|final|activity|action|decision|merge|fork|join|object-node|state|history|choice|participant|lifeline|compartment|attribute|operation|constraint|note|literal|slot|responsibility|provided-interface|required-interface|property|entry|do|exit|region)\\b"
+        },
+        {
+          "name": "keyword.operator.uml.relation.xaligo",
+          "match": "\\b(?:association|aggregation|composition|generalization|realization|dependency|assembly|delegation|control-flow|object-flow|transition|message|return-message|create-message|destroy-message|relation)\\b"
         },
         {
           "name": "keyword.operator.connection.tag.xaligo",
@@ -155,7 +167,7 @@
       "patterns": [
         {
           "name": "entity.other.attribute-name.known.xaligo",
-          "match": "\\b(?:version|width|height|class|layout|gap|title|id|src|dst|span|row|col|visible|border|item-size|font-size|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|overflow|icon-id|name|ref|target|kind|color|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead|side|anchor|src-side|dst-side|src-anchor|dst-anchor|x|y|dx|dy|bends|points|via|scale|coordinate-scale|grid)\\b"
+          "match": "\\b(?:version|width|height|class|layout|gap|row-gap|title|id|src|dst|span|row|col|visible|border|item-size|font-size|font-family|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|overflow|icon-id|name|ref|target|kind|color|key-color|background-color|key-background-color|border-color|key-width|break-before|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead|side|anchor|src-side|dst-side|src-anchor|dst-anchor|src-frame-side|dst-frame-side|src-frame-anchor|dst-frame-anchor|x|y|dx|dy|bends|points|via|scale|coordinate-scale|grid|data|format|dialect|columns|references|on-delete|on-update|type|primary-key|nullable|unique|default|key|value|position|direction|lanes|theme|component-width|component-height|interface-width|lane|owner|stereotype|abstract|static|label|guard|event|action|route|src-multiplicity|dst-multiplicity|order|mode|description|show-element-names|tone)\\b"
         },
         {
           "name": "entity.other.attribute-name.xml.xaligo",

@@ -22,7 +22,23 @@ function isMatchedByNamedPattern(repositoryName: string, scopeName: string, valu
 }
 
 describe("latest V1 syntax highlighting", () => {
-  it.each(["frames", "rectangle", "port", "connections", "bend", "waypoint"])(
+  it.each([
+    "xaligo",
+    "frames",
+    "rectangle",
+    "port",
+    "table-data",
+    "database-schema",
+    "uml",
+    "class-diagram",
+    "activity-diagram",
+    "state-machine-diagram",
+    "sequence-diagram",
+    "create-message",
+    "connections",
+    "bend",
+    "waypoint"
+  ])(
     "recognizes the %s tag",
     (tag) => {
       const patterns = grammar.repository["tag-names"].patterns;
@@ -41,12 +57,26 @@ describe("latest V1 syntax highlighting", () => {
     "src-anchor",
     "dst-side",
     "coordinate-scale",
-    "grid"
+    "grid",
+    "src-frame-anchor",
+    "break-before",
+    "key-background-color",
+    "interface-width",
+    "show-element-names"
   ])("recognizes the %s attribute", (attribute) => {
     expect(isMatchedByNamedPattern(
       "attribute-names",
       "entity.other.attribute-name.known.xaligo",
       attribute
     )).toBe(true);
+  });
+
+  it("indents col because it is a structural container", () => {
+    const configuration = JSON.parse(readFileSync(
+      new URL("../language-configuration.json", import.meta.url),
+      "utf8"
+    )) as { indentationRules: { increaseIndentPattern: string } };
+    expect(new RegExp(configuration.indentationRules.increaseIndentPattern).test("  <col span=\"6\">"))
+      .toBe(true);
   });
 });

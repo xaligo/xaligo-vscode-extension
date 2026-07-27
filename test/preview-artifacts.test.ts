@@ -39,6 +39,26 @@ describe("preview SVG artifacts", () => {
     }
   });
 
+  it("uses CLI output order when frame IDs are not alphabetical", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-preview-artifacts-"));
+    const overview = path.join(directory, "preview-overview.svg");
+    const detail = path.join(directory, "preview-detail.svg");
+    try {
+      await Promise.all([
+        fs.writeFile(overview, "<svg>overview</svg>"),
+        fs.writeFile(detail, "<svg>detail</svg>")
+      ]);
+      const artifacts = await readPreviewArtifacts(
+        directory,
+        path.join(directory, "preview.svg"),
+        [overview, detail]
+      );
+      expect(artifacts.map((artifact) => artifact.id)).toEqual(["overview", "detail"]);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("loads the exact output used for a single-frame document", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-preview-artifacts-"));
     try {

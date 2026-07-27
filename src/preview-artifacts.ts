@@ -15,20 +15,24 @@ function extractOutgoingFrameLinks(svg: string): string[] {
 
 export async function readPreviewArtifacts(
   invocationDirectory: string,
-  requestedOutputPath: string
+  requestedOutputPath: string,
+  orderedOutputPaths: string[] = []
 ): Promise<PreviewArtifact[]> {
   const requestedName = path.basename(requestedOutputPath);
   const requestedStem = path.basename(requestedOutputPath, path.extname(requestedOutputPath));
-  const entries = await fs.readdir(invocationDirectory, { withFileTypes: true });
-  const artifactNames = entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-    .filter((name) => {
-      const extension = path.extname(name).toLowerCase();
-      const stem = path.basename(name, extension);
-      return extension === ".svg" && (name === requestedName || stem.startsWith(`${requestedStem}-`));
-    })
-    .sort((left, right) => left.localeCompare(right));
+  const invocationRoot = path.resolve(invocationDirectory);
+  const orderedNames = orderedOutputPaths
+    .map((outputPath) => path.resolve(outputPath))
+    .filter((outputPath) => path.dirname(outputPath) === invocationRoot)
+    .map((outputPath) => path.basename(outputPath))
+    .filter((name) => isRequestedSvgName(name, requestedName, requestedStem));
+  const artifactNames = orderedNames.length > 0
+    ? [...new Set(orderedNames)]
+    : (await fs.readdir(invocationDirectory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => isRequestedSvgName(name, requestedName, requestedStem))
+      .sort((left, right) => left.localeCompare(right));
   if (artifactNames.length === 0) {
     throw new Error(`xaligo did not generate an SVG preview for ${requestedName}.`);
   }
@@ -43,4 +47,10 @@ export async function readPreviewArtifacts(
       linksTo: extractOutgoingFrameLinks(svg)
     };
   }));
+}
+
+function isRequestedSvgName(name: string, requestedName: string, requestedStem: string): boolean {
+  const extension = path.extname(name).toLowerCase();
+  const stem = path.basename(name, extension);
+  return extension === ".svg" && (name === requestedName || stem.startsWith(`${requestedStem}-`));
 }

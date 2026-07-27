@@ -18,6 +18,7 @@ interface DragState {
 
 interface PersistedPreviewState {
   transforms: Record<string, ViewTransform>;
+  [key: string]: unknown;
 }
 
 interface VsCodeApi<State> {
@@ -54,7 +55,10 @@ export function useViewTransform(
         delete persisted.transforms[key];
       }
     }
-    vscode.setState(persisted);
+    vscode.setState({
+      ...(vscode.getState() ?? {}),
+      transforms: persisted.transforms
+    });
   }
 
   function schedulePersistTransform(): void {
