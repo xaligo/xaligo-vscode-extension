@@ -69,6 +69,7 @@ describe("extension runtime configuration", () => {
 describe("managed runtime state", () => {
   it("derives the package root only from the verified identity key", () => {
     const key = runtimeVersionKey(identity);
+    const globalStoragePath = path.resolve(os.tmpdir(), "xaligo-global-storage");
     const state = parseManagedRuntimeState({
       schemaVersion: 1,
       current: {
@@ -82,8 +83,8 @@ describe("managed runtime state", () => {
       path: "/tmp/untrusted-state"
     });
     expect(state).toBeDefined();
-    expect(managedRuntimePackageRoot("/global", state!.current)).toBe(
-      path.join("/global", "runtime", "versions", key)
+    expect(managedRuntimePackageRoot(globalStoragePath, state!.current)).toBe(
+      path.join(globalStoragePath, "runtime", "versions", key)
     );
   });
 

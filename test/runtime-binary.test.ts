@@ -9,6 +9,15 @@ import {
   verifyRuntimeBinary
 } from "../src/runtime-binary";
 
+function linuxX64Executable(): Buffer {
+  const bytes = Buffer.alloc(36);
+  Buffer.from("7f454c46", "hex").copy(bytes);
+  bytes[4] = 2;
+  bytes[5] = 1;
+  bytes.writeUInt16LE(62, 18);
+  return bytes;
+}
+
 describe("native runtime binary health", () => {
   it("recognizes supported native executable headers", () => {
     expect(hasNativeExecutableHeader(Buffer.from("7f454c46", "hex"), "linux")).toBe(true);
@@ -17,14 +26,10 @@ describe("native runtime binary health", () => {
     expect(hasNativeExecutableHeader(Buffer.from("23212f62", "hex"), "linux")).toBe(false);
   });
 
-  it("checks executable permission and the recorded managed digest", async () => {
+  it("checks the recorded managed digest", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-runtime-binary-"));
     const binaryPath = path.join(root, "xaligo");
-    const bytes = Buffer.alloc(36);
-    Buffer.from("7f454c46", "hex").copy(bytes);
-    bytes[4] = 2;
-    bytes[5] = 1;
-    bytes.writeUInt16LE(62, 18);
+    const bytes = linuxX64Executable();
     try {
       await fs.writeFile(binaryPath, bytes, { mode: 0o755 });
       const digest = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
@@ -36,8 +41,19 @@ describe("native runtime binary health", () => {
         4,
         "x64"
       )).resolves.toBe(false);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("checks executable permission", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-runtime-permission-"));
+    const binaryPath = path.join(root, "xaligo");
+    try {
+      await fs.writeFile(binaryPath, linuxX64Executable(), { mode: 0o755 });
+      await expect(verifyRuntimeBinary(binaryPath, "linux", undefined, 4, "x64")).resolves.toBe(true);
       await fs.chmod(binaryPath, 0o644);
-      await expect(verifyRuntimeBinary(binaryPath, "linux", digest, 4, "x64")).resolves.toBe(false);
+      await expect(verifyRuntimeBinary(binaryPath, "linux", undefined, 4, "x64")).resolves.toBe(false);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

@@ -58,16 +58,26 @@ describe("runtime update lock", () => {
   it("elects one winner when two updaters start simultaneously", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-runtime-election-"));
     let releaseWinner!: () => void;
+    let markWinnerEntered!: () => void;
     const winnerBlocked = new Promise<void>((resolve) => { releaseWinner = resolve; });
+    const winnerEntered = new Promise<void>((resolve) => { markWinnerEntered = resolve; });
     let entered = 0;
+    let rejected = 0;
     const update = () => withRuntimeLock(root, async () => {
       entered += 1;
+      markWinnerEntered();
       await winnerBlocked;
     }, { electionMilliseconds: 10, heartbeatMilliseconds: 5 });
     try {
       const updates = [update(), update()];
+      for (const pending of updates) {
+        void pending.catch(() => {
+          rejected += 1;
+        });
+      }
       const settled = Promise.allSettled(updates);
-      await new Promise((resolve) => setTimeout(resolve, 40));
+      await winnerEntered;
+      await expect.poll(() => rejected, { timeout: 2_000 }).toBe(1);
       expect(entered).toBe(1);
       releaseWinner();
       const results = await settled;
