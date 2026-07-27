@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type * as vscode from "vscode";
 import { verifyRuntimeBinary } from "./runtime-binary";
+import { hasCompleteRuntimeLayout } from "./runtime-layout";
 import {
   compareRuntimeIdentities,
   runtimeVersionKey,
@@ -17,12 +18,21 @@ export interface ExtensionXaligoConfig {
   nativeBinaryArchNames: Record<string, string>;
 }
 
-export interface XaligoRuntimeSelection {
+export interface XaligoCustomRuntimeSelection {
+  binary: string;
+  source: "custom";
+}
+
+export interface XaligoPackagedRuntimeSelection {
   binary: string;
   packageRoot: string;
   identity: RuntimeIdentity;
-  source: "custom" | "managed" | "bundled";
+  source: "managed" | "bundled";
 }
+
+export type XaligoRuntimeSelection =
+  | XaligoCustomRuntimeSelection
+  | XaligoPackagedRuntimeSelection;
 
 export interface ManagedRuntimeEntry extends RuntimeIdentity {
   key: string;
@@ -49,9 +59,7 @@ interface RuntimePackageJson {
   };
 }
 
-interface RuntimeCandidate extends XaligoRuntimeSelection {
-  source: "managed" | "bundled";
-}
+type RuntimeCandidate = XaligoPackagedRuntimeSelection;
 
 interface ManagedRuntimeCandidate {
   runtime?: RuntimeCandidate;
@@ -84,16 +92,17 @@ export class XaligoRuntimeResolver {
 
     const config = await this.extensionConfig();
     const customBinary = configuredExecutablePath(vscodeApi);
-    if (customBinary && !await isRegularFile(customBinary)) {
-      throw new Error(`Configured xaligo executable was not found: ${customBinary}`);
+    if (customBinary && !await verifyRuntimeBinary(customBinary)) {
+      throw new Error(
+        `Configured xaligo executable is missing, non-executable, or built for another platform/architecture: ${customBinary}`
+      );
+    }
+    if (customBinary) {
+      logger.info(`resolved xaligo runtime: custom ${customBinary}`);
+      return { binary: customBinary, source: "custom" };
     }
 
-    const bundledRoot = path.resolve(this.context.extensionPath, config.packageRoot);
-    const [bundled, managed] = await Promise.all([
-      readRuntimeCandidate(bundledRoot, config, "bundled"),
-      this.readManagedRuntime(config)
-    ]);
-    const selectedPackage = chooseRuntimeCandidate(bundled, managed.runtime, managed.pinned);
+    const selectedPackage = await this.resolvePackaged(config);
     if (!selectedPackage) {
       const error = `${config.packageName} has no healthy bundled or managed runtime for ` +
         `${process.platform}/${process.arch}.`;
@@ -101,21 +110,23 @@ export class XaligoRuntimeResolver {
       throw new Error(error);
     }
 
-    if (customBinary) {
-      const customPackage = bundled ?? selectedPackage;
-      logger.info(`resolved xaligo runtime: custom ${customBinary}`);
-      return {
-        binary: customBinary,
-        packageRoot: customPackage.packageRoot,
-        identity: customPackage.identity,
-        source: "custom"
-      };
-    }
     logger.info(
       `resolved xaligo runtime: ${selectedPackage.source} ${selectedPackage.identity.releaseTag} ` +
       `(${selectedPackage.binary})`
     );
     return selectedPackage;
+  }
+
+  async resolvePackaged(
+    providedConfig?: ExtensionXaligoConfig
+  ): Promise<XaligoPackagedRuntimeSelection | undefined> {
+    const config = providedConfig ?? await this.extensionConfig();
+    const bundledRoot = path.resolve(this.context.extensionPath, config.packageRoot);
+    const [bundled, managed] = await Promise.all([
+      readRuntimeCandidate(bundledRoot, config, "bundled"),
+      this.readManagedRuntime(config)
+    ]);
+    return chooseRuntimeCandidate(bundled, managed.runtime, managed.pinned);
   }
 
   private async readManagedRuntime(config: ExtensionXaligoConfig): Promise<ManagedRuntimeCandidate> {
@@ -277,12 +288,8 @@ async function readRuntimeCandidate(
     }
 
     const binary = xaligoNativeBinaryPath(packageRoot, config);
-    const requiredFiles = [
-      path.join(packageRoot, "etc", "resources", "aws", "app.yaml"),
-      path.join(packageRoot, "etc", "resources", "aws", "service-catalog.csv")
-    ];
     const binaryHealthy = await verifyRuntimeBinary(binary, process.platform, expected?.binaryDigest);
-    if (!binaryHealthy || !(await Promise.all(requiredFiles.map(isRegularFile))).every(Boolean)) {
+    if (!binaryHealthy || !await hasCompleteRuntimeLayout(packageRoot)) {
       return undefined;
     }
     if (source === "managed") {
@@ -377,14 +384,6 @@ function expandExecutablePath(value: string, settingLabel: string): string {
     throw new Error(`${settingLabel} must be an absolute path.`);
   }
   return path.normalize(expanded);
-}
-
-async function isRegularFile(filePath: string): Promise<boolean> {
-  try {
-    return (await fs.stat(filePath)).isFile();
-  } catch {
-    return false;
-  }
 }
 
 async function readOptionalTextFile(filePath: string): Promise<string | undefined> {

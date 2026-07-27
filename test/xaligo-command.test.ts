@@ -4,12 +4,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDiffArguments,
+  buildGenerateXalArguments,
   buildMarkdownRenderArguments,
   buildRenderArguments,
   createTemporaryOutputDirectory,
   diffOutputPaths,
   isMarkdownFilePath,
+  parseCommandWarnings,
   parseDiffSummary,
+  parseRenderedOutputPaths,
+  renderedOutputPaths,
   replaceExtension
 } from "../src/xaligo-command";
 
@@ -96,6 +100,35 @@ describe("xaligo command contracts", () => {
     ]);
   });
 
+  it("supplies generation defaults required by older bundled runtimes", () => {
+    expect(buildGenerateXalArguments("architecture.xal")).toEqual([
+      "generate",
+      "xal",
+      "--clouds",
+      "1",
+      "--accounts",
+      "1",
+      "--regions",
+      "1",
+      "--azs",
+      "2",
+      "--az-layout",
+      "grid",
+      "--subnets",
+      "2",
+      "--spacing",
+      "both",
+      "--start",
+      "top",
+      "--paper",
+      "A4",
+      "--orientation",
+      "landscape",
+      "--output",
+      "architecture.xal"
+    ]);
+  });
+
   it("parses the CLI structural change summary", () => {
     expect(parseDiffSummary("changes: +12 -3 ~4")).toEqual({
       added: 12,
@@ -103,6 +136,54 @@ describe("xaligo command contracts", () => {
       modified: 4
     });
     expect(parseDiffSummary("render complete")).toBeUndefined();
+  });
+
+  it("reads ordered render paths and warnings from structured logs", () => {
+    const output = [
+      JSON.stringify({
+        level: "INFO",
+        code: "ICRRR-005",
+        fields: { output: "/tmp/preview-overview.svg" }
+      }),
+      JSON.stringify({
+        level: "WARN",
+        code: "IUPP-018",
+        message: "legacy root"
+      }),
+      JSON.stringify({
+        level: "INFO",
+        code: "ICRRR-005",
+        fields: { output: "/tmp/preview-detail.svg" }
+      })
+    ].join("\n");
+    expect(parseRenderedOutputPaths(output)).toEqual([
+      "/tmp/preview-overview.svg",
+      "/tmp/preview-detail.svg"
+    ]);
+    expect(parseCommandWarnings(output)).toEqual(["IUPP-018: legacy root"]);
+  });
+
+  it("preserves structured source order for multi-frame render artifacts", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "xaligo-output-paths-"));
+    const overview = path.join(root, "preview-overview.svg");
+    const detail = path.join(root, "preview-detail.svg");
+    try {
+      await Promise.all([
+        fs.writeFile(overview, "<svg/>"),
+        fs.writeFile(detail, "<svg/>")
+      ]);
+      const stdout = [
+        JSON.stringify({ code: "ICRRR-005", fields: { output: overview } }),
+        JSON.stringify({ code: "ICRRR-005", fields: { output: detail } })
+      ].join("\n");
+      await expect(renderedOutputPaths(
+        path.join(root, "preview.svg"),
+        { stdout, stderr: "" },
+        Date.now()
+      )).resolves.toEqual([overview, detail]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 
   it("replaces only the final file extension", () => {

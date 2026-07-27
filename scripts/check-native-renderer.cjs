@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -22,22 +23,91 @@ const binary = path.join(
   config.nativeBinaryDir || path.join('bin', 'native'),
   `xaligo-${platform}-${arch}${suffix}`
 );
-
 if (!fs.existsSync(binary)) {
   throw new Error(`bundled xaligo native binary was not found: ${binary}`);
 }
 
-const result = spawnSync(binary, ['diff', '--help'], {
-  encoding: 'utf8',
-  env: { ...process.env, XALIGO_HOME: packageRoot },
-  timeout: 30_000
-});
-const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-if (result.error) {
-  throw result.error;
-}
-if (result.status !== 0 || !output.includes('xaligo diff <before.xal> <after.xal>')) {
-  throw new Error(`bundled xaligo does not provide structural diff:\n${output.trim()}`);
+const requiredResources = [
+  'VERSION',
+  'package.json',
+  path.join('etc', 'resources', 'aws', 'app.yaml'),
+  path.join('etc', 'resources', 'aws', 'service-catalog.csv'),
+  path.join('etc', 'resources', 'aws', 'service-index.csv'),
+  path.join('etc', 'resources', 'aws', 'isoflow-icons.json'),
+  path.join('etc', 'resources', 'aws', 'svg', 'Architecture-Group-Icons', 'AWS-Account_32.svg'),
+  path.join('etc', 'resources', 'aws', 'svg', 'Tabler-Icons', 'LICENSE'),
+  path.join('external', 'wasm', 'xaligo.wasm')
+];
+
+for (const relativePath of requiredResources) {
+  const target = path.join(packageRoot, relativePath);
+  if (!fs.existsSync(target) || !fs.statSync(target).isFile() || fs.statSync(target).size === 0) {
+    throw new Error(`bundled xaligo runtime resource was not found: ${target}`);
+  }
 }
 
-console.log(`Verified structural diff support: ${binary}`);
+function run(args) {
+  const result = spawnSync(binary, args, {
+    encoding: 'utf8',
+    env: { ...process.env, XALIGO_HOME: packageRoot },
+    timeout: 120_000
+  });
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`bundled xaligo command failed (${args.join(' ')}):\n${output.trim()}`);
+  }
+  return output;
+}
+
+const diffHelp = run(['diff', '--help']);
+if (!diffHelp.includes('xaligo diff <before.xal> <after.xal>')) {
+  throw new Error(`bundled xaligo does not provide structural diff:\n${diffHelp.trim()}`);
+}
+
+const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'xaligo-renderer-check-'));
+try {
+  const inputPath = path.join(temporaryDirectory, 'smoke.xal');
+  fs.writeFileSync(
+    inputPath,
+    '<xaligo version="1"><frames><frame id="smoke" width="320" height="200"><rectangle id="box" title="Smoke" height="96" /></frame></frames></xaligo>\n'
+  );
+  run(['validate', inputPath]);
+  const formats = [
+    ['svg', 'svg', 'svg'],
+    ['excalidraw', 'excalidraw', 'json'],
+    ['pptx', 'pptx', 'zip'],
+    ['pdf', 'pdf', 'pdf'],
+    ['excel', 'xlsx', 'zip'],
+    ['xyflow', 'xyflow.json', 'json'],
+    ['isoflow', 'isoflow.json', 'json']
+  ];
+  for (const [format, extension, signature] of formats) {
+    const outputPath = path.join(temporaryDirectory, `smoke.${extension}`);
+    run(['render', inputPath, '--format', format, '-o', outputPath]);
+    const output = fs.readFileSync(outputPath);
+    const valid = signature === 'svg'
+      ? output.subarray(0, 512).toString('utf8').includes('<svg')
+      : signature === 'json'
+        ? isJson(output)
+        : signature === 'zip'
+          ? output.subarray(0, 2).toString('ascii') === 'PK'
+          : output.subarray(0, 5).toString('ascii') === '%PDF-';
+    if (!valid) {
+      throw new Error(`bundled xaligo failed its ${format} output signature check`);
+    }
+  }
+} finally {
+  fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+}
+
+function isJson(value) {
+  try {
+    JSON.parse(value.toString('utf8'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+console.log(`Verified bundled renderer resources and all export formats: ${binary}`);

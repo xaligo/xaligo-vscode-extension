@@ -2,7 +2,7 @@
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
   "description": "VS Code language support, interactive preview, and structural diff for the xaligo .xal diagram DSL.",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
@@ -91,7 +91,6 @@
     "onCommand:xaligo.validate",
     "onCommand:xaligo.showVersion",
     "onCommand:xaligo.runCliCommand",
-    "onCommand:xaligo.selectFileIconTheme",
     "onCommand:xaligo.showUpdates",
     "onCommand:xaligo.updateRuntime",
     "onCommand:xaligo.updateExtension",
@@ -115,13 +114,6 @@
           "light": "./assets/xaligo-file-icon.png",
           "dark": "./assets/xaligo-file-icon.png"
         }
-      }
-    ],
-    "iconThemes": [
-      {
-        "id": "xaligo-icons",
-        "label": "xaligo",
-        "path": "./fileicons/xaligo-icon-theme.json"
       }
     ],
     "grammars": [
@@ -236,12 +228,6 @@
         "title": "Run CLI Feature…",
         "category": "xaligo",
         "icon": "$(terminal)"
-      },
-      {
-        "command": "xaligo.selectFileIconTheme",
-        "title": "Select File Icon Theme",
-        "category": "xaligo",
-        "icon": "$(symbol-color)"
       },
       {
         "command": "xaligo.showUpdates",
@@ -364,6 +350,14 @@
           "default": "",
           "scope": "machine-overridable",
           "description": "Absolute path to a xaligo native CLI. Leave empty to use the newest healthy managed or bundled runtime. Structural diff requires xaligo 0.1.21 or newer."
+        },
+        "xaligo.commandTimeoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "maximum": 3600,
+          "scope": "machine-overridable",
+          "description": "Maximum time in seconds for renderer, validation, Markdown, and diff commands. Increase this when Windows security scanning or large documents need more time."
         }
       }
     }
@@ -375,7 +369,7 @@
     "test": "vitest run",
     "check:renderer": "node scripts/check-native-renderer.cjs",
     "typecheck": "tsc --noEmit",
-    "package": "node scripts/prepare-vsix-native-binaries.cjs && vsce package",
+    "package": "npm run build && node scripts/prepare-vsix-native-binaries.cjs && node scripts/check-package-contents.cjs && vsce package",
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
@@ -392,7 +386,7 @@
     "@element-plus/icons-vue": "^2.3.2",
     "@xaligo/xaligo": "0.1.25-main.34",
     "element-plus": "^2.14.3",
-    "tar": "^7.5.19",
+    "tar": "^7.5.22",
     "vue": "^3.5.40",
     "vue-markdown-render": "^2.3.1"
   }

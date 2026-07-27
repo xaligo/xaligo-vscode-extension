@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { xaligoLogger } from "./logger";
 import type { DiffSummary } from "./preview-contract";
+import { runtimeEnvironment } from "./runtime-environment";
 import {
   XaligoRuntimeResolver,
   type XaligoRuntimeSelection
@@ -12,7 +13,9 @@ import {
   buildMarkdownRenderArguments,
   buildRenderArguments,
   diffOutputPaths,
+  parseCommandWarnings,
   parseDiffSummary,
+  renderedOutputPaths,
   type XaligoRenderOptions,
   type XaligoRenderFormat
 } from "./xaligo-command";
@@ -67,6 +70,11 @@ export const exportFormats: Record<XaligoRenderFormat, ExportFormat> = {
 export interface XaligoProcessResult {
   stdout: string;
   stderr: string;
+  warnings: string[];
+}
+
+export interface XaligoRenderResult extends XaligoProcessResult {
+  outputPaths: string[];
 }
 
 class XaligoCommandError extends Error {
@@ -90,18 +98,24 @@ export class XaligoRenderer {
     format: XaligoRenderFormat,
     signal?: AbortSignal,
     options: XaligoRenderOptions = {}
-  ): Promise<void> {
+  ): Promise<XaligoRenderResult> {
     const runtime = await this.runtimeResolver.resolve();
     const servicesPath = await findNearestServicesCsv(sourcePath);
-    await runXaligo(
+    const startedAt = Date.now();
+    const execution = await runXaligo(
       runtime,
       buildRenderArguments(sourcePath, outputPath, format, {
         ...options,
         servicesPath: options.servicesPath ?? servicesPath
       }),
-      30_000,
+      await configuredCommandTimeout(),
       signal
     );
+    const outputPaths = await renderedOutputPaths(outputPath, execution, startedAt);
+    if (outputPaths.length === 0) {
+      throw new Error(`xaligo did not generate the requested ${format} output.`);
+    }
+    return { ...execution, outputPaths };
   }
 
   async renderMarkdown(
@@ -109,15 +123,15 @@ export class XaligoRenderer {
     outputPath: string,
     svgDirectory: string,
     signal?: AbortSignal
-  ): Promise<void> {
+  ): Promise<XaligoProcessResult> {
     const runtime = await this.runtimeResolver.resolve();
     const servicesPath = await findNearestServicesCsv(sourcePath);
-    await runXaligo(
+    return runXaligo(
       runtime,
       buildMarkdownRenderArguments(sourcePath, outputPath, svgDirectory, {
         servicesPath
       }),
-      60_000,
+      await configuredCommandTimeout(),
       signal
     );
   }
@@ -139,7 +153,7 @@ export class XaligoRenderer {
       const execution = await runXaligo(
         runtime,
         buildDiffArguments(beforePath, afterPath, outputPrefix),
-        60_000,
+        await configuredCommandTimeout(),
         signal
       );
       const [removedSvg, addedSvg] = await Promise.all([
@@ -167,13 +181,22 @@ export class XaligoRenderer {
     }
   }
 
-  async export(sourcePath: string, outputPath: string, exportFormat: ExportFormat): Promise<void> {
-    await this.render(sourcePath, outputPath, exportFormat.renderFormat);
+  async export(
+    sourcePath: string,
+    outputPath: string,
+    exportFormat: ExportFormat,
+    signal?: AbortSignal
+  ): Promise<XaligoRenderResult> {
+    return this.render(sourcePath, outputPath, exportFormat.renderFormat, signal);
   }
 
-  async execute(args: string[], timeout = 60_000, signal?: AbortSignal): Promise<XaligoProcessResult> {
+  async execute(
+    args: string[],
+    timeout?: number,
+    signal?: AbortSignal
+  ): Promise<XaligoProcessResult> {
     const runtime = await this.runtimeResolver.resolve();
-    return runXaligo(runtime, args, timeout, signal);
+    return runXaligo(runtime, args, timeout ?? await configuredCommandTimeout(), signal);
   }
 
   async terminalLaunch(args: string[]): Promise<{ binary: string; args: string[]; env: Record<string, string> }> {
@@ -181,7 +204,7 @@ export class XaligoRenderer {
     return {
       binary: runtime.binary,
       args,
-      env: { XALIGO_HOME: runtime.packageRoot }
+      env: runtime.source === "custom" ? {} : { XALIGO_HOME: runtime.packageRoot }
     };
   }
 }
@@ -223,10 +246,7 @@ function runXaligo(
       args,
       {
         encoding: "utf8",
-        env: {
-          ...process.env,
-          XALIGO_HOME: runtime.packageRoot
-        },
+        env: runtimeEnvironment(runtime),
         maxBuffer: 4 * 1024 * 1024,
         signal,
         timeout
@@ -239,10 +259,36 @@ function runXaligo(
           return;
         }
         logger.debug(`command succeeded: ${runtime.binary} ${args.join(" ")}`);
-        resolve({ stdout, stderr });
+        const warnings = parseCommandWarnings(`${stdout}\n${stderr}`);
+        if (stdout.trim()) {
+          logger.info(stdout.trim());
+        }
+        if (stderr.trim()) {
+          if (warnings.length > 0) {
+            logger.warn(stderr.trim());
+          } else {
+            logger.info(stderr.trim());
+          }
+        }
+        resolve({ stdout, stderr, warnings });
       }
     );
   });
+}
+
+async function configuredCommandTimeout(): Promise<number> {
+  const fallbackSeconds = 120;
+  try {
+    const vscodeApi = await import("vscode");
+    const configured = vscodeApi.workspace.getConfiguration("xaligo")
+      .get<number>("commandTimeoutSeconds", fallbackSeconds);
+    const seconds = Number.isFinite(configured)
+      ? Math.min(3_600, Math.max(10, configured))
+      : fallbackSeconds;
+    return seconds * 1_000;
+  } catch {
+    return fallbackSeconds * 1_000;
+  }
 }
 
 async function exists(filePath: string): Promise<boolean> {

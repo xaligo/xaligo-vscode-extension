@@ -5,6 +5,7 @@ import path from "node:path";
 import * as vscode from "vscode";
 import { extractPackageArchive } from "./runtime-archive";
 import { verifyDigest, verifySubresourceIntegrity } from "./runtime-integrity";
+import { missingRuntimeFiles } from "./runtime-layout";
 import { withRuntimeLock } from "./runtime-lock";
 import {
   runtimeVersionKey,
@@ -29,9 +30,9 @@ const githubReleaseApi = "https://api.github.com/repos/xaligo/xaligo/releases/ta
 const maximumMetadataBytes = 2 * 1024 * 1024;
 const maximumTarballBytes = 64 * 1024 * 1024;
 const maximumBinaryBytes = 64 * 1024 * 1024;
-// Render and diff child processes time out within 60 seconds. Keep recently
-// resolved generations well beyond that window before deleting them.
-const runtimeUsageGraceMilliseconds = 5 * 60 * 1_000;
+// Renderer child processes can be configured up to one hour. Keep recently
+// resolved generations beyond that window before deleting them.
+const runtimeUsageGraceMilliseconds = 65 * 60 * 1_000;
 const installAction = "Install Update";
 
 interface RuntimeRelease {
@@ -69,9 +70,6 @@ export class XaligoRuntimeUpdater {
       return;
     }
 
-    const hasCustomExecutable = vscode.workspace.getConfiguration("xaligo")
-      .get<string>("executablePath", "")
-      .trim().length > 0;
     const cancellation = new AbortController();
     try {
       const result = await vscode.window.withProgress(
@@ -85,9 +83,12 @@ export class XaligoRuntimeUpdater {
           try {
             progress.report({ message: "Checking the latest release…" });
             const release = await this.fetchLatestRelease(cancellation.signal);
-            const current = await this.resolver.resolve().catch(() => undefined);
+            const active = await this.resolver.resolve().catch(() => undefined);
+            const current = active?.source === "custom"
+              ? await this.resolver.resolvePackaged().catch(() => undefined)
+              : active;
             if (current && !shouldInstallRuntime(current, release.identity)) {
-              return { status: "current" as const, current, release };
+              return { status: "current" as const, current, release, customActive: active?.source === "custom" };
             }
 
             if (release.identity.prerelease) {
@@ -104,7 +105,12 @@ export class XaligoRuntimeUpdater {
 
             progress.report({ message: `Downloading ${release.identity.packageVersion}…` });
             await this.installRelease(release, progress, cancellation.signal);
-            return { status: "installed" as const, current, release };
+            return {
+              status: "installed" as const,
+              current,
+              release,
+              customActive: active?.source === "custom"
+            };
           } finally {
             cancellationSubscription.dispose();
           }
@@ -112,8 +118,8 @@ export class XaligoRuntimeUpdater {
       );
 
       if (result.status === "current") {
-        const customNotice = result.current.source === "custom"
-          ? " The configured xaligo.executablePath remains active."
+        const customNotice = result.customActive
+          ? " The configured custom xaligo executable remains active."
           : "";
         await vscode.window.showInformationMessage(
           `xaligo runtime assets ${result.current.identity.packageVersion} are already the latest available version.` +
@@ -122,8 +128,8 @@ export class XaligoRuntimeUpdater {
         return;
       }
 
-      const customNotice = result.current?.source === "custom" || hasCustomExecutable
-        ? " The configured xaligo.executablePath remains active until that setting is cleared."
+      const customNotice = result.customActive
+        ? " The configured custom xaligo executable remains active until its setting or environment override is cleared."
         : "";
       await vscode.window.showInformationMessage(
         `Updated the managed xaligo runtime to ${result.release.identity.packageVersion}.` + customNotice
@@ -299,15 +305,12 @@ async function fetchBytes(
 ): Promise<Buffer> {
   validateDownloadUrl(url, allowedHosts);
   throwIfCancelled(signal);
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "xaligo-vscode-extension",
-      ...headers
-    },
-    redirect: "follow",
-    signal
-  });
-  validateDownloadUrl(response.url, allowedHosts);
+  const response = await fetchFollowingTrustedRedirects(
+    url,
+    signal,
+    allowedHosts,
+    headers
+  );
   if (!response.ok) {
     throw new Error(`Update download failed with HTTP ${response.status}.`);
   }
@@ -340,6 +343,38 @@ async function fetchBytes(
   return Buffer.concat(chunks, received);
 }
 
+async function fetchFollowingTrustedRedirects(
+  initialUrl: string,
+  signal: AbortSignal,
+  allowedHosts: string[],
+  headers: Record<string, string>
+): Promise<Response> {
+  let currentUrl = validateDownloadUrl(initialUrl, allowedHosts);
+  for (let redirects = 0; redirects <= 5; redirects += 1) {
+    const response = await fetch(currentUrl, {
+      headers: {
+        "User-Agent": "xaligo-vscode-extension",
+        ...headers
+      },
+      redirect: "manual",
+      signal
+    });
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return response;
+    }
+    const location = response.headers.get("location");
+    await response.body?.cancel().catch(() => undefined);
+    if (!location) {
+      throw new Error("The update server returned a redirect without a destination.");
+    }
+    if (redirects === 5) {
+      throw new Error("The update download followed too many redirects.");
+    }
+    currentUrl = validateDownloadUrl(new URL(location, currentUrl).toString(), allowedHosts);
+  }
+  throw new Error("The update download followed too many redirects.");
+}
+
 function validateDownloadUrl(url: string, allowedHosts: string[]): string {
   const parsed = new URL(url);
   if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname)) {
@@ -366,10 +401,10 @@ async function verifyStagedPackage(packageRoot: string, identity: RuntimeIdentit
   if (version !== identity.version) {
     throw new Error("The staged xaligo VERSION file does not match its package version.");
   }
-  await Promise.all([
-    fs.access(path.join(packageRoot, "etc", "resources", "aws", "app.yaml")),
-    fs.access(path.join(packageRoot, "etc", "resources", "aws", "service-catalog.csv"))
-  ]);
+  const missing = await missingRuntimeFiles(packageRoot);
+  if (missing.length > 0) {
+    throw new Error(`The staged xaligo package is missing required runtime files: ${missing.join(", ")}`);
+  }
 }
 
 async function smokeTestRuntime(
@@ -379,24 +414,61 @@ async function smokeTestRuntime(
   signal: AbortSignal
 ): Promise<void> {
   const inputPath = path.join(stagingDirectory, "smoke.xal");
-  const outputPath = path.join(stagingDirectory, "smoke.svg");
   await fs.writeFile(
     inputPath,
-    '<frame version="1" width="320" height="200"><rectangle id="smoke" title="Smoke" height="96" /></frame>\n',
+    '<xaligo version="1"><frames><frame id="smoke" width="320" height="200"><rectangle id="box" title="Smoke" height="96" /></frame></frames></xaligo>\n',
     "utf8"
   );
   const environment = { ...process.env, XALIGO_HOME: packageRoot };
   await runExecutable(binary, ["diff", "--help"], environment, signal);
   await runExecutable(binary, ["validate", inputPath], environment, signal);
-  await runExecutable(
-    binary,
-    ["render", inputPath, "--format", "svg", "-o", outputPath],
-    environment,
-    signal
-  );
-  const rendered = await fs.readFile(outputPath, "utf8");
-  if (!rendered.includes("<svg")) {
-    throw new Error("The updated xaligo runtime failed its SVG smoke test.");
+
+  const formats = [
+    { format: "svg", extension: "svg", signature: "svg" },
+    { format: "excalidraw", extension: "excalidraw", signature: "json" },
+    { format: "pptx", extension: "pptx", signature: "zip" },
+    { format: "pdf", extension: "pdf", signature: "pdf" },
+    { format: "excel", extension: "xlsx", signature: "zip" },
+    { format: "xyflow", extension: "xyflow.json", signature: "json" },
+    { format: "isoflow", extension: "isoflow.json", signature: "json" }
+  ] as const;
+  for (const candidate of formats) {
+    throwIfCancelled(signal);
+    const outputPath = path.join(stagingDirectory, `smoke.${candidate.extension}`);
+    await runExecutable(
+      binary,
+      ["render", inputPath, "--format", candidate.format, "-o", outputPath],
+      environment,
+      signal
+    );
+    await verifySmokeOutput(outputPath, candidate.signature, candidate.format);
+  }
+}
+
+async function verifySmokeOutput(
+  outputPath: string,
+  signature: "svg" | "json" | "zip" | "pdf",
+  format: string
+): Promise<void> {
+  const output = await fs.readFile(outputPath);
+  const valid = signature === "svg"
+    ? output.toString("utf8", 0, Math.min(output.length, 512)).includes("<svg")
+    : signature === "json"
+      ? isJson(output)
+      : signature === "zip"
+        ? output.subarray(0, 2).equals(Buffer.from("PK"))
+        : output.subarray(0, 5).equals(Buffer.from("%PDF-"));
+  if (!valid) {
+    throw new Error(`The updated xaligo runtime failed its ${format} smoke test.`);
+  }
+}
+
+function isJson(value: Buffer): boolean {
+  try {
+    JSON.parse(value.toString("utf8"));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -415,7 +487,7 @@ function runExecutable(
         env: environment,
         maxBuffer: 4 * 1024 * 1024,
         signal,
-        timeout: 30_000
+        timeout: 120_000
       },
       (error: ExecFileException | null, stdout, stderr) => {
         if (!error) {
