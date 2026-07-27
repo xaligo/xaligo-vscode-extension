@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.0.18
 
+- Updated the bundled xaligo renderer dependency to the stable
+  `@xaligo/xaligo@0.1.27` release.
 - Added `xaligo.servePort` for choosing the HTTP port used by the Serve live
   preview CLI feature while retaining port `8080` as the default.
 
