@@ -2,124 +2,140 @@
 applyTo: "**"
 ---
 
-# xaligo — General Coding Guidelines
+# xaligo VS Code Extension — General Coding Guidelines
 
 ## Project
 
-`xaligo` is a Go CLI and WebAssembly/TypeScript package that converts the
-`.xal` diagram DSL to Excalidraw, SVG, PPTX, XYFlow, and Isoflow outputs.
+`xaligo-vscode-extension` is the VS Code extension for the xaligo `.xal`
+diagram DSL: syntax highlighting, an interactive Vue-based preview webview,
+structural diff, Markdown preview, and diagram export commands. It is a
+TypeScript-only project — there is no Go source in this repository. All
+`.xal` parsing, layout, and rendering is delegated to the bundled
+`@xaligo/xaligo` npm package; this repository only wraps that CLI/WASM
+package with VS Code integration.
 
 ```text
-module: github.com/ryo-arima/xaligo
-Go:     1.22
+name:      xaligo-vscode-extension
+publisher: xaligo
+language:  TypeScript
+bundler:   Vite (separate extension-host and webview iife bundles)
+tests:     Vitest
 ```
 
-Read `roadmap.instructions.md` for product direction,
-`xal-spec.instructions.md` for DSL behavior, and
-`architecture.instructions.md` for implementation boundaries.
+## Where to find xaligo core (.xal DSL / CLI / renderer) documentation
+
+This repository does not implement the `.xal` parser, layout engine, or
+renderers — it consumes the `@xaligo/xaligo` npm package
+(`node_modules/@xaligo/xaligo`, version pinned in `package.json`) for that.
+This repo's own `xal-spec.instructions.md`, `architecture.instructions.md`,
+`roadmap.instructions.md`, and `arrow-routing-pptx.instructions.md` are
+reference snapshots of the xaligo core repository's own instructions, not an
+independent source of truth for this codebase. Prefer, in order:
+
+1. **The bundled package actually shipped with this extension** —
+   `node_modules/@xaligo/xaligo/README.md`,
+   `node_modules/@xaligo/xaligo/VERSION`, and
+   `node node_modules/@xaligo/xaligo/bin/xaligo.cjs <command> --help` for the
+   exact CLI flags and behavior of the version this extension currently
+   depends on (see the `@xaligo/xaligo` entry in `package.json`
+   `dependencies`).
+2. **The sibling `xaligo` core repository**, when this multi-root workspace
+   also has it checked out (commonly alongside this folder, e.g. `../xaligo`)
+   — its `docs/src/**` (mdbook source) and
+   `.github/instructions/*.instructions.md` files are the actively
+   maintained originals for the DSL spec, architecture, and roadmap.
+3. **This repo's own copies** (`xal-spec.instructions.md`,
+   `architecture.instructions.md`, `roadmap.instructions.md`,
+   `arrow-routing-pptx.instructions.md`, `diagram-creation.instructions.md`)
+   only as a last-resort fallback when neither of the above is available,
+   and flag to the user that they may be stale relative to the currently
+   installed `@xaligo/xaligo` version.
+
+Read `agent-guide.instructions.md` for this repository's own working
+agreement, directory structure, and common commands.
 
 ## Directory structure
 
 ```text
-xaligo/
-├── cmd/
-│   ├── main.go                  native CLI entry point
-│   └── wasm/main.go             JavaScript/WASM adapter
-├── internal/
-│   ├── command.go               root Cobra command assembly
-│   ├── controller/              CLI flags and file-I/O adapters
-│   ├── entity/                  internal structures; independent entity layer
-│   ├── usecase/
-│   │   ├── xaligo.go            constructor-injected application facade
-│   │   ├── parser.go            .xal parser
-│   │   ├── render.go            render orchestration and dispatch
-│   │   ├── scene.go             shared scene construction
-│   │   ├── layout.go            resolved layout calculations
-│   │   ├── plan.go              shared draw-plan calculations
-│   │   ├── routing.go           shared connector routing
-│   │   └── theme.go             canonical scene theming
-│   ├── repository/              filesystem and output-format adapters
-│   └── config/                  project configuration
-├── test/
-│   ├── unit/                    unit tests mirroring the project tree
-│   └── integration/             black-box use-case/adapter tests
-├── external/                    TypeScript external adapter layer
-│   ├── command.ts               TypeScript CLI entry point
-│   ├── controller/              CLI argument and file-I/O adapters
-│   ├── entity/                  TypeScript API and PPTX plan types
-│   ├── repository/              WASM, PptxGenJS, and package adapters
-│   └── usecase/                 TypeScript orchestration and public API
-├── etc/resources/aws/           catalogs, templates, icons, attribution
-├── examples/                    example .xal and services CSV files
-├── scripts/                     asset/catalog generation scripts
-├── docs/images/                 README gallery assets
-├── Makefile
-├── go.mod / go.sum
-└── README.md
+xaligo-vscode-extension/
+├── src/
+│   ├── extension.ts              activation, command registration
+│   ├── xaligo.ts                 renderer facade over the CLI/native binary
+│   ├── xaligo-command.ts         CLI argument builders
+│   ├── preview.ts                diagram/diff/Markdown preview panel controller
+│   ├── preview-contract.ts       shared webview <-> host message/state types
+│   ├── preview-artifacts.ts      rendered SVG/frame artifact handling
+│   ├── markdown-preview.ts       Markdown render output parsing for preview
+│   ├── logger.ts                 output-channel logging
+│   ├── runtime-*.ts              managed xaligo runtime resolve/verify/update
+│   ├── extension-update*.ts      extension self-update workflow
+│   ├── updates.ts                combined runtime/extension update UI
+│   └── webview/
+│       ├── main.ts               Vue app bootstrap (preview webview entry)
+│       ├── App.vue               preview webview UI (Vue 3 + Element Plus)
+│       └── composables/          Vue composables (e.g. view-transform/zoom)
+├── test/                         Vitest specs mirroring src/
+├── media/preview.css             webview stylesheet
+├── syntaxes/xal.tmLanguage.json  `.xal` TextMate grammar
+├── language-configuration.json   `.xal` language configuration
+├── examples/                     sample `.xal`/services CSV files
+├── scripts/                      build/packaging helper scripts
+├── assets/, images/               extension and README images
+├── vite.config.ts                extension-host bundle (src/extension.ts)
+├── vite.webview.config.ts        webview bundle (src/webview/main.ts)
+├── package.json                  manifest, commands, scripts, dependencies
+└── CHANGELOG.md / THIRD_PARTY_NOTICES.md
 ```
-
-The repository root contains no Go source files. Executable adapters belong in
-`cmd`; application implementation belongs in `internal`. This repository's
-external integration boundary is the CLI, HTTP/SSE preview protocol, and WASM
-adapter rather than an importable public Go package.
 
 ## Architecture rules
 
-- Preserve `.xal -> parser -> layout -> shared scene/plan -> encoder`.
-- Format-rendering adapters call `internal/usecase`; they do not create
-  parallel parser or layout pipelines.
-- Input/output-format-specific encoding and persistence belong to
-  `internal/repository`; use-case filenames describe processing, not formats.
-- `internal/entity` owns structures exchanged between layers and contains no
-  application orchestration. Shared value helpers such as theme names and
-  service labels may live here when they are renderer-independent.
-- Calculation and orchestration belong under `internal/usecase`.
-- Keep mode (visual semantics) independent from format (serialization).
-- Keep cross-format routing and geometry in shared layers.
-- `cmd` imports command/adapters only; business logic stays outside entry points.
-- Native and embedded environments differ through `usecase.AssetSource`, not
-  through duplicated render implementations.
-- Go constructs PPTX draw plans; the configured WASM/PptxGenJS adapter writes
-  PPTX bytes. Do not add a second OOXML writer.
-- Return context-wrapped errors. Do not panic in core code.
+- Keep `.xal`/CLI behavior delegated to the `@xaligo/xaligo` dependency; do
+  not reimplement parsing, layout, or rendering in this repository.
+- `src/extension.ts` only wires commands to controllers/use-case-like
+  modules (`xaligo.ts`, `preview.ts`, `xaligo-command.ts`); keep non-trivial
+  logic out of command callbacks.
+- `preview-contract.ts` is the single shared type boundary between the
+  extension host (`preview.ts`) and the webview (`src/webview/**`). Change
+  both sides together when it changes.
+- The webview (`src/webview/**`) only talks to the extension host through
+  `acquireVsCodeApi().postMessage`/`onDidReceiveMessage`; it must not read
+  files or spawn processes directly.
+- `src/webview/main.ts` is the only Vite webview entry point
+  (`vite.webview.config.ts`); do not leave orphaned alternate webview entry
+  scripts in the tree — remove superseded implementations instead of layering
+  a new one alongside the old.
+- Preserve unrelated and pre-existing working-tree changes.
+- Do not commit `dist/`, `node_modules/`, `.vsix` packages, or other
+  generated/build output.
+- Add focused Vitest coverage with every behavior change.
 
-## Testing rules
+## Common commands
 
-- Put unit tests under `test/unit`, mirroring the source tree they cover.
-- Put black-box tests of exported APIs and adapters in `test/integration`.
-- Prefer externally observable behavior over package-private helper assertions
-  when moving tests outside implementation packages.
-- Add focused coverage for behavior changes and preserve regression tests.
-
-## Assets and configuration
-
-- Configuration: `etc/resources/aws/app.yaml`
-- ID lookup: `etc/resources/aws/service-index.csv`
-- Full catalog: `etc/resources/aws/service-catalog.csv`
-- Embedded assets: `etc/resources/aws/assets.go`
-- SVG assets: `etc/resources/aws/svg`
-- Isoflow manifest: `etc/resources/aws/isoflow-icons.json`
-
-Preserve bundled license and attribution files. Generated assets must be
-refreshed through the scripts declared in the root `package.json`.
-
-## Conventions
-
-- Run `gofmt` on changed Go files.
-- Use lowercase single-word package names.
-- Wrap errors with `fmt.Errorf("context: %w", err)`.
-- Represent Excalidraw elements as `map[string]interface{}` for format
-  compatibility.
-- Do not commit binaries, dependencies, caches, `output`, WASM artifacts, or
-  TypeScript `dist` output.
+```bash
+npm install
+npm run typecheck        # tsc --noEmit
+npm test                 # vitest run
+npm run build            # clean-dist + extension bundle + webview bundle
+npm run watch            # rebuild extension bundle on change
+npm run watch:webview    # rebuild webview bundle on change
+npm run check:renderer   # verify the bundled native xaligo renderer
+npm run package          # stage native binaries + vsce package
+```
 
 ## Verification
 
 ```bash
-go test ./...
-go build ./...
-npm install
-npm run build --workspace=@ryo-arima/xaligo
-npm --prefix external run build:pptx-exporter-wasm
+npm run typecheck
+npm test
+npm run build
 git diff --check
+git status --short
 ```
+
+## Conventions
+
+- Keep new source files under `src/` (or `src/webview/` for webview-only
+  code) with a matching Vitest spec under `test/`.
+- Wrap Node.js errors with context rather than letting raw fs/process errors
+  surface to the user unexplained.
+- Do not commit binaries, dependencies, caches, `dist`, or `.vsix` output.

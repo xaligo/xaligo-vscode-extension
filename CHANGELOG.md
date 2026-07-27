@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.0.17
+
+- Fixed Windows and custom-CLI execution so custom binaries use their own
+  resources, Windows paths and empty arguments round-trip correctly, and
+  command timeouts are configurable and cancellable.
+- Fixed multi-frame export reporting and preview ordering by consuming the
+  renderer's actual structured output paths.
+- Added local and HTTPS Markdown image support, safe link opening, persistent
+  frame-card positions, accurate SVG sizing, and accessible SVG-only dialogs.
+- Expanded bundled and managed runtime health checks to cover catalogs, SVG
+  assets, WASM, architecture, and all seven render formats.
+- Hardened VSIX binary downloads with HTTPS host restrictions, SHA-256
+  verification, architecture validation, and atomic stale-binary replacement.
+- Added Node.js 24 CI on macOS, Linux, and Windows, dependency auditing, and
+  required VSIX-content checks.
+- Updated the latest V1 syntax coverage and fixed `<col>` indentation.
+- Removed the bundled file icon theme so installing xaligo never replaces
+  icons for unrelated file types.
+- Added offline `.xal` specification and diagram-authoring documentation.
+- Updated `tar` and audited transitive dependencies to patched releases.
+
 ## 0.0.16
 
 - Republished after 0.0.15 was already live on the Marketplace; no

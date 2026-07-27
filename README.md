@@ -15,13 +15,15 @@ command and flag supported by the selected xaligo runtime.
 ## Features
 
 - Registers `.xal` files as the `xal` language.
-- Adds an original-color file icon generated from SVG for `.xal` files, with a bundled file icon theme for themes that override language icons.
+- Registers an original-color language icon for `.xal` files without replacing
+  the user's active file icon theme.
 - Provides syntax highlighting for xaligo tags, attributes, strings, comments, XML entities, spacing classes, and connection shorthands.
 - Colors common xaligo and AWS group tags in the editor for faster scanning.
 - Adds comment, bracket, auto-closing, folding, and indentation behavior for `.xal` files.
 - Opens an SVG preview with a grouped, icon-first Preview / Diff menu panel.
 - Renders Markdown with the MIT-licensed Vue Markdown renderer and keeps
-  CLI-generated xaligo SVG diagrams as vector images.
+  CLI-generated xaligo SVG diagrams as vector images. Relative local images,
+  HTTPS images, and local or external links remain usable in the webview.
 - Zooms around the pointer with Ctrl/Cmd + wheel and pans by dragging the canvas.
 - Compares two `.xal` files structurally and displays removed and added diagrams
   side by side with pale red and pale green highlights.
@@ -30,6 +32,8 @@ command and flag supported by the selected xaligo runtime.
   Isoflow files.
 - Uses `<name>.services.csv` or the nearest `services.csv` for preview labels and legends when present.
 - Updates the xaligo runtime and the VS Code extension independently from the command palette.
+- Ships an offline copy of the `.xal` DSL spec and diagram-authoring guide
+  under `docs/`, so an AI assistant can read them without network access.
 
 ## Preview
 
@@ -42,12 +46,13 @@ beside the source editor.
 Use Ctrl/Cmd + wheel over the diagram to zoom around the pointer. Drag the
 canvas with the primary mouse button, or focus it and use the arrow keys, to
 move it. Zoom controls remain on the canvas; the menu panel provides Preview,
-Diff, Fit, and Refresh controls. View position is retained when a file is
-rendered again.
+Diff, Fit, and Refresh controls. View position and manually arranged
+frame-card positions are retained when a file is rendered again.
 
 The menu is a one-button-wide vertical panel with **View** and **Output** tabs.
-The display tab contains diagram, Markdown, and diff previews; the output tab
-contains Markdown conversion plus the seven diagram export formats. Hover or
+The display tab contains diagram, Markdown, and diff previews. The output tab
+shows the seven diagram formats only for a diagram, Markdown conversion only
+for Markdown, and no misleading export target for structural diff. Hover or
 keyboard-focus any icon button to see its name. Validation, source generation,
 runtime management, and shell completion remain available from the command
 palette rather than the preview panel. Markdown preview defaults to A4 portrait.
@@ -80,12 +85,16 @@ overrides used by the normal preview are not applied to diff images.
 
 To export the current `.xal` file, run **xaligo: Export as SVG**, **xaligo: Export as PPTX**, or **xaligo: Export as Excalidraw** from the command palette or editor menu, then choose the output file path.
 
-If the `.xal` icon does not appear with your current file icon theme, run **xaligo: Select File Icon Theme** or **Preferences: File Icon Theme**, then select **xaligo**.
-
 The native renderer is bundled in the VSIX, so activation does not require a
-download. Structural diff requires xaligo 0.1.21 or newer. During core
+download. Native binaries are included for macOS, Linux, and Windows on x64
+and arm64. Structural diff requires xaligo 0.1.21 or newer. During core
 development, set `xaligo.executablePath` to an absolute path for a compatible
-native xaligo CLI.
+native xaligo CLI. A custom CLI runs with its own resource discovery; the
+extension does not force it to use resources from the bundled package.
+
+Renderer commands default to a 120-second timeout and can be cancelled from
+progress notifications. Set `xaligo.commandTimeoutSeconds` higher for very
+large documents or hosts where Windows security scanning delays a new binary.
 
 ## Updates
 
@@ -94,8 +103,9 @@ updates are separate operations:
 
 - **Update xaligo Runtime** checks the npm release metadata, verifies the npm
   package with its SHA-512 integrity value, verifies the platform binary with
-  the GitHub Release SHA-256 digest, and runs validate/render smoke tests before
-  activating it. A failed update leaves the active runtime unchanged.
+  the GitHub Release SHA-256 digest, verifies every required catalog, SVG, and
+  WASM resource, and runs validation plus all seven render-format smoke tests
+  before activating it. A failed update leaves the active runtime unchanged.
 - **Update xaligo Extension** delegates installation to VS Code's extension
   update mechanism and offers to reload the window afterward.
 
@@ -108,23 +118,57 @@ confirmation before installing it.
 ## Example
 
 ```xml
-<frame version="1" width="1440" height="900" class="pa-4">
-  <aws-cloud id="production" title="Production">
-    <region id="region-ap-northeast-1" title="ap-northeast-1">
-      <vpc id="application-vpc" title="Application VPC" layout="horizontal">
-        <public-subnet id="public" title="Public">
-          <item id="1178" name="edge" />
-        </public-subnet>
-        <private-subnet id="private" title="Private">
-          <item id="1189" name="app" />
-        </private-subnet>
-      </vpc>
-    </region>
-  </aws-cloud>
+<xaligo version="1">
+  <frames gap="48">
+    <frame id="overview" title="Production" version="1.0.0"
+           width="1440" height="900" class="pa-4">
+      <metadata>
+        <entry key="owner" value="Platform Engineering" />
+        <entry key="status" value="Approved" />
+      </metadata>
+      <aws-cloud id="production" title="Production">
+        <region id="region-ap-northeast-1" title="ap-northeast-1">
+          <vpc id="application-vpc" title="Application VPC">
+            <generic-group id="vpc-edge" title="VPC Edge">
+              <item id="1182" name="edge" />  <!-- Elastic Load Balancing -->
+            </generic-group>
+            <availability-zone id="az-a" title="AZ: ap-northeast-1a" layout="horizontal">
+              <private-subnet id="app-tier" title="App Tier">
+                <item id="27" name="app" />   <!-- Amazon EC2 -->
+              </private-subnet>
+              <private-subnet id="data-tier" title="Data Tier">
+                <item id="117" name="db" />   <!-- Amazon RDS -->
+              </private-subnet>
+            </availability-zone>
+          </vpc>
+        </region>
+      </aws-cloud>
 
-  edge ==> app
-</frame>
+      edge ==> app
+      app ==> db
+    </frame>
+  </frames>
+</xaligo>
 ```
+
+`<xaligo version="1">` is the canonical document root; it wraps document-wide
+`<data>` (omitted here) and exactly one `<frames>` page collection. The
+`<metadata>` block renders `id`/`title`/`version` plus each `<entry>` as a tag
+band on the page. See [docs/diagram-creation.md](docs/diagram-creation.md) for
+the full service-scope guidance behind this layout (why the load balancer sits
+at VPC level while EC2/RDS sit inside an availability zone) and
+[docs/xal-spec.md](docs/xal-spec.md) for every tag and attribute.
+
+## Documentation for AI assistants
+
+This extension ships an offline copy of the `.xal` DSL reference under
+[docs/](docs/README.md) — [docs/xal-spec.md](docs/xal-spec.md) (language
+specification) and [docs/diagram-creation.md](docs/diagram-creation.md)
+(step-by-step AWS diagram authoring guide). These files install alongside the
+extension, so any AI assistant (GitHub Copilot, Claude, ChatGPT, Cursor, etc.)
+can read them for offline `.xal` guidance without cloning the xaligo core
+repository or needing network access. See [docs/README.md](docs/README.md)
+for how to locate them once installed and an example prompt.
 
 ## Requirements
 
