@@ -1,52 +1,18 @@
 export type PreviewMode = "preview" | "markdown" | "diff";
 
-export type CliFeature =
+export type PreviewAction =
   | "validate"
   | "export-svg"
   | "export-pptx"
-  | "export-excalidraw"
-  | "export-pdf"
-  | "export-excel"
-  | "export-xyflow"
-  | "export-isoflow"
   | "preview-markdown"
-  | "serve"
-  | "render-markdown"
-  | "generate-xal"
-  | "add-service"
-  | "add-services"
-  | "init"
-  | "version"
-  | "help"
-  | "completion-bash"
-  | "completion-fish"
-  | "completion-powershell"
-  | "completion-zsh"
-  | "custom";
+  | "render-markdown";
 
-export const cliFeatures: readonly CliFeature[] = [
+export const previewActions: readonly PreviewAction[] = [
   "validate",
   "export-svg",
   "export-pptx",
-  "export-excalidraw",
-  "export-pdf",
-  "export-excel",
-  "export-xyflow",
-  "export-isoflow",
   "preview-markdown",
-  "serve",
-  "render-markdown",
-  "generate-xal",
-  "add-service",
-  "add-services",
-  "init",
-  "version",
-  "help",
-  "completion-bash",
-  "completion-fish",
-  "completion-powershell",
-  "completion-zsh",
-  "custom"
+  "render-markdown"
 ];
 
 export const markdownPaperSizes = [
@@ -190,8 +156,8 @@ export type PreviewWebviewMessage =
   | { command: "showUpdates" }
   | { command: "setMarkdownSettings"; settings: MarkdownPreviewSettings }
   | {
-    command: "runCliFeature";
-    feature: CliFeature;
+    command: "runPreviewAction";
+    action: PreviewAction;
     markdown?: MarkdownPreviewSettings;
   }
   | { command: "openLink"; href: string }

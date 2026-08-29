@@ -22,10 +22,10 @@ Packaging may download the native binaries for all supported VSIX targets, so
 network access is required at build time. Extension activation does not require
 a renderer download.
 
-Before publishing a diff-enabled extension, confirm that
-`@xaligo/xaligo@0.1.21` or newer and its six native release assets are
+Before publishing this release, confirm that the official `v0.2.1`
+`xaligo-xaligo-0.2.1.tgz` package and all six native release assets are
 available, update `package.json` and `package-lock.json`, and verify that the
-bundled host binary accepts `xaligo diff --help`.
+bundled host binary passes SVG, PPTX, diff, and LSP checks.
 
 The `.github/workflows/ci.yml` workflow runs the same typecheck and VSIX
 packaging checks on pull requests targeting `main`.

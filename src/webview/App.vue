@@ -3,23 +3,18 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, type Com
 import VueMarkdown, { type Options as MarkdownOptions } from "vue-markdown-render";
 import {
   Back,
-  Box,
   Close,
   Connection,
   DataAnalysis,
-  Document,
   Download,
-  EditPen,
   Loading,
   Menu,
   Memo,
   Picture,
   Refresh,
   Right,
-  Share,
   Switch,
   FullScreen,
-  Grid,
   View,
   ZoomIn,
   ZoomOut
@@ -30,8 +25,8 @@ import {
   markdownOrientations,
   markdownPaperSizes,
   previewContentChanged,
-  type CliFeature,
   type MarkdownPreviewSettings,
+  type PreviewAction,
   type PreviewHostMessage,
   type PreviewMode,
   type PreviewPanelState,
@@ -85,8 +80,8 @@ interface SvgOnlyDrag {
   startPanY: number;
 }
 
-interface CliMenuAction {
-  feature: CliFeature;
+interface PreviewMenuAction {
+  action: PreviewAction;
   label: string;
   icon: Component;
 }
@@ -229,21 +224,16 @@ function safeArtifactId(id: string): string {
   return id.trim().replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-const diagramExportActions: CliMenuAction[] = [
-  { feature: "export-svg", label: "Export SVG", icon: Picture },
-  { feature: "export-pptx", label: "Export PowerPoint", icon: DataAnalysis },
-  { feature: "export-excalidraw", label: "Export Excalidraw", icon: EditPen },
-  { feature: "export-pdf", label: "Export PDF", icon: Document },
-  { feature: "export-excel", label: "Export Excel", icon: Grid },
-  { feature: "export-xyflow", label: "Export XYFlow", icon: Share },
-  { feature: "export-isoflow", label: "Export Isoflow", icon: Box }
+const diagramExportActions: PreviewMenuAction[] = [
+  { action: "export-svg", label: "Export SVG", icon: Picture },
+  { action: "export-pptx", label: "Export PowerPoint", icon: DataAnalysis }
 ];
-const exportActions = computed<CliMenuAction[]>(() => {
+const exportActions = computed<PreviewMenuAction[]>(() => {
   if (state.value.mode === "preview") {
     return diagramExportActions;
   }
   if (state.value.mode === "markdown") {
-    return [{ feature: "render-markdown", label: "Render Markdown", icon: Memo }];
+    return [{ action: "render-markdown", label: "Render Markdown", icon: Memo }];
   }
   return [];
 });
@@ -848,8 +838,8 @@ function swapDiffFiles(): void {
   vscode.postMessage({ command: "swapDiffFiles" });
 }
 
-function runCliFeature(feature: CliFeature): void {
-  vscode.postMessage({ command: "runCliFeature", feature });
+function runPreviewAction(action: PreviewAction): void {
+  vscode.postMessage({ command: "runPreviewAction", action });
 }
 
 function onMarkdownClick(event: MouseEvent): void {
@@ -865,8 +855,8 @@ function onMarkdownClick(event: MouseEvent): void {
 
 function previewMarkdown(): void {
   vscode.postMessage({
-    command: "runCliFeature",
-    feature: "preview-markdown",
+    command: "runPreviewAction",
+    action: "preview-markdown",
     markdown: {
       paper: markdownPaper.value,
       orientation: markdownOrientation.value
@@ -1296,7 +1286,7 @@ onBeforeUnmount(() => {
           <div class="menu-stack-group" aria-label="Output actions">
             <span
               v-for="action in exportActions"
-              :key="action.feature"
+              :key="action.action"
               class="menu-tooltip"
               @mouseenter="showMenuTooltip(action.label, $event)"
               @mouseleave="hideMenuTooltip"
@@ -1306,7 +1296,7 @@ onBeforeUnmount(() => {
               <el-button
                 class="icon-menu-button"
                 :aria-label="action.label"
-                @click="runCliFeature(action.feature)"
+                @click="runPreviewAction(action.action)"
               >
                 <el-icon><component :is="action.icon" /></el-icon>
               </el-button>

@@ -1,42 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   clampZoom,
-  cliFeatures,
   defaultMarkdownPreviewSettings,
   markdownOrientations,
   markdownPageDimensionsMm,
   markdownPaperSizes,
   normalizeViewTransform,
   parseMarkdownPreviewSettings,
+  previewActions,
   previewContentChanged,
   zoomAtPoint
 } from "../src/preview-contract";
 
-describe("preview CLI features", () => {
-  it("exposes every command, render format, service mode, and completion shell", () => {
-    expect(cliFeatures).toEqual([
+describe("preview actions", () => {
+  it("exposes only actions handled without a terminal", () => {
+    expect(previewActions).toEqual([
       "validate",
       "export-svg",
       "export-pptx",
-      "export-excalidraw",
-      "export-pdf",
-      "export-excel",
-      "export-xyflow",
-      "export-isoflow",
       "preview-markdown",
-      "serve",
-      "render-markdown",
-      "generate-xal",
-      "add-service",
-      "add-services",
-      "init",
-      "version",
-      "help",
-      "completion-bash",
-      "completion-fish",
-      "completion-powershell",
-      "completion-zsh",
-      "custom"
+      "render-markdown"
     ]);
   });
 });

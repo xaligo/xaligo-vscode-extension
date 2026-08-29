@@ -7,12 +7,13 @@ applyTo: "**"
 ## Project
 
 `xaligo-vscode-extension` is the VS Code extension for the xaligo `.xal`
-diagram DSL: syntax highlighting, an interactive Vue-based preview webview,
-structural diff, Markdown preview, and diagram export commands. It is a
-TypeScript-only project — there is no Go source in this repository. All
+diagram DSL: Language Server Protocol integration, syntax highlighting, an
+interactive Vue-based preview webview, structural diff, Markdown preview, and
+diagram output commands. It is a TypeScript-only project — there is no Go
+source in this repository. All
 `.xal` parsing, layout, and rendering is delegated to the bundled
-`@xaligo/xaligo` npm package; this repository only wraps that CLI/WASM
-package with VS Code integration.
+`@xaligo/xaligo` release package; this repository only wraps its native CLI
+and LSP server with VS Code integration.
 
 ```text
 name:      xaligo-vscode-extension
@@ -67,6 +68,7 @@ xaligo-vscode-extension/
 │   ├── preview-artifacts.ts      rendered SVG/frame artifact handling
 │   ├── markdown-preview.ts       Markdown render output parsing for preview
 │   ├── logger.ts                 output-channel logging
+│   ├── language-server*.ts       native xaligo LSP client integration
 │   ├── runtime-*.ts              managed xaligo runtime resolve/verify/update
 │   ├── extension-update*.ts      extension self-update workflow
 │   ├── updates.ts                combined runtime/extension update UI

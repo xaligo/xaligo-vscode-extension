@@ -5,6 +5,7 @@
 > This describes the DSL implemented by the `@xaligo/xaligo` package bundled
 > with this extension; paths such as `etc/resources/aws/...` refer to the
 > xaligo core package/repository, not files inside this extension.
+> This snapshot is aligned with the stable xaligo 0.2.1 release.
 
 ## Overview
 
@@ -50,6 +51,56 @@ tokens exactly as documented here. Historical case-insensitive or directional
 aliases that are not listed in this specification are accepted implementation
 details, not part of the frozen compatibility profile. A V2 compatibility
 frontend canonicalizes the documented V1 values once at its input boundary.
+
+### Native V2 scene profile
+
+Native V2 is intentionally smaller and uses generic scene concepts that lower
+directly into the shared Rust layout and rendering engine.
+
+```xml
+<scene version="2" width="640" height="240"
+       layout="horizontal" gap="24">
+  <capture id="client-zone" class="pa-4" layout="horizontal">
+    <item id="client" shape="ellipse">Client</item>
+  </capture>
+  <item id="api" icon="builtin:service" fill="#eff6ff"
+        stroke="#2563eb" corner-radius="8">API</item>
+  <line id="request" source="client" target="api"
+        routing="orthogonal" target-arrow="arrow" label="HTTPS" />
+</scene>
+```
+
+V2 concept tags are:
+
+| Tags | Lowered concept |
+|---|---|
+| `frame`, `frames` | physical frame |
+| `capture` | capture/group boundary |
+| `item`, `rectangle` | atomic item |
+| `port` | item port |
+| `connection`, `line`, `route`, `traffic` | routed line |
+| `text`, `label` | text |
+| `spacer`, `blank` | empty layout slot |
+| other leaf/container tags | generic item/group |
+
+The scene defaults to `1280` by `720` with `gap="16"`. Explicit
+`layout="horizontal|vertical|none"` selects layout; `<row>` defaults to
+horizontal, while `<col>`, `<container>`, `<frame>`, and `<frames>` default to
+vertical. `x`, `y`, `width`, `height`, `gap`, `weight` (`span` alias), `dx`,
+`dy`, `align`, `class="pa-N"`, and `overflow="visible|error"` control layout.
+
+Visual attributes are `fill`, `stroke` (`color` alias), `stroke-width`,
+`corner-radius`, `opacity`, and `shape="rectangle|ellipse|none"`. Text comes
+from direct content or `label`, `title`, then `name`, and accepts `font-size`.
+Icons use `icon` or `icon-ref`; `icon-id` and a numeric `<item id>` resolve
+through the bundled catalog.
+
+Lines use `source`/`target` (`src`/`dst` aliases),
+`routing="orthogonal|straight"` (`route` alias), `label`,
+`stroke-style="solid|dashed|dotted"` (`style` alias), `src-anchor`,
+`dst-anchor`, and `src-arrow`/`dst-arrow` (`source-arrow`/`target-arrow`
+aliases). Decorations are `none`, `arrow`, `thin`, `standard`, `stealth`,
+`triangle`, `diamond`, `circle`, or `oval`; routing defaults to orthogonal.
 
 ## Root Tag
 
@@ -115,17 +166,12 @@ have been resolved.
 |---|---|
 | SVG | One `.svg` artifact per frame |
 | PPTX | One slide per frame |
-| PDF | One page per frame |
-| Excel | One worksheet per frame, containing the frame's SVG image |
-| Excalidraw, XYFlow, Isoflow | One logical document containing all frames |
 
 For a document with one child frame, SVG writes exactly the requested output
 path. For multiple child frames, an output request such as `diagram.svg`
 produces `diagram-<safe-frame-id>.svg` for each frame. `--combine-frames` is
-the explicit compatibility option for page-oriented formats: it restores the
-historical single canvas/slide/PDF page/Excel worksheet. It does not change
-Excalidraw, XYFlow, or Isoflow because those formats are already single
-logical documents.
+the explicit compatibility option for page-oriented formats: it restores one
+combined SVG canvas or PPTX slide.
 
 ### Frame metadata tag band
 
@@ -182,9 +228,8 @@ boundary before that entry.
 The metadata reservation strip spans the full frame width at the selected
 top/bottom edge and is a hard exclusion zone: normal items and their text,
 connector paths and labels, and cross-frame page-link paths and labels cannot
-enter it, even under `overflow="visible"`. SVG, PPTX, PDF, Excel, and
-Excalidraw all render the owning frame's metadata band; XYFlow and Isoflow
-omit it because it is page decoration rather than a graph node or endpoint.
+enter it, even under `overflow="visible"`. SVG and PPTX both render the owning
+frame's metadata band.
 
 ## Numeric and Geometry Contract
 
@@ -374,8 +419,7 @@ also comes from `title` or direct text content, and it supports `font-size`.
 Port boxes must remain inside their parent rectangle. Explicit positions are
 normalized before drawing, and overlapping ports on the same side are a layout
 diagnostic rather than a renderer-specific accident. Port text carries the
-shared text-layout policy: SVG and PPTX enforce it, while editable
-Excalidraw-compatible output preserves it in metadata for bound-text consumers.
+shared text-layout policy enforced by SVG and PPTX.
 
 ## Resolved Text Layout
 
@@ -399,11 +443,9 @@ with the same effective scale as the containing geometry. Changing
 `--px-per-inch` or paper fitting therefore preserves the text-to-shape ratio.
 
 An encoder may use native text fitting or deterministic line breaking, but the
-visible result must obey the resolved policy. Editable Excalidraw-compatible
-bound text carries the same `xaligoTextLayout` metadata and must not become a
-separate layout authority. Encoders apply text policy in this order: resolve
-padding, wrap when enabled, shrink when requested, then clip when
-`TextLayout.overflow="clip"`.
+visible result must obey the resolved policy. Encoders apply text policy in
+this order: resolve padding, wrap when enabled, shrink when requested, then
+clip when `TextLayout.overflow="clip"`.
 
 ## `<item>` Tag
 
@@ -538,24 +580,14 @@ are also preserved.
 For SVG and PPTX Plan output, the render option `arrow-style` supplies the
 global arrowhead (and, for `thin`/`standard`, width) only when the connection
 does not explicitly set that semantic value. Explicit DSL or inherited group
-values take precedence, and `kind="route"` remains headless. Excalidraw,
-XYFlow, and Isoflow V1 output consume the resolved DSL scene rather than this
-Plan-only option.
+values take precedence, and `kind="route"` remains headless.
 
 When a connection references endpoints in different frames, xaligo renders a
 local line stub in each frame instead of drawing a single line across pages.
 The source frame stub is labeled `to <frame-id>` near the frame edge, and the
 destination frame stub is labeled `from <frame-id>`. Both scene stubs carry the
-same logical connector ID, original endpoint/frame IDs, and V1 routing metadata.
-Adapters with a single-canvas graph model, such as XYFlow and Isoflow, use
-those fields to emit one logical edge instead of two partial edges.
-
-Output formats are projections of this resolved V1 meaning. A target schema
-may not have fields for every V1 connector value; the upstream-compatible
-Isoflow connector schema, for example, has no arbitrary metadata field. Such
-adapters must use native constructs where available and must not add private,
-schema-breaking fields. A V2 compatibility frontend consumes V1 directly and
-must never use an output format as an intermediate representation.
+same logical connector ID, original endpoint/frame IDs, and V1 routing
+metadata. SVG and PPTX preserve those page-local projections.
 
 When `src-side`, `dst-side`, `src-anchor`, and `dst-anchor` are omitted,
 endpoint sides and anchor positions are calculated automatically from endpoint
@@ -599,17 +631,11 @@ one of `id`, `ref`, `name`, or `target`.
 </connection>
 ```
 
-Excalidraw output always serializes arrowhead sizes as the smallest supported
-size (`"s"`) to keep dense diagrams readable. The logical arrowhead type and
-style metadata are still stored on the connector and used by SVG/PPTX export.
-
 Manual bend coordinates are expressed as child tags in the same Cartesian
 layout coordinate space as the frame, with the origin at the upper-left of the
 rendered frame and positive `x`/`y` extending right/down. SVG and PPTX route
-calculations keep the connector orthogonal while forcing the route through each
-listed bend in order. Excalidraw output stores the routing metadata on the
-arrow; Excalidraw's own editor may still display its editable elbow connector
-approximation.
+calculations keep the connector orthogonal while forcing the route through
+each listed bend in order.
 
 ```xml
 <connection src="web" dst="db"
@@ -647,30 +673,24 @@ prod-vpc --- web
   headless.
 
 **Arrow spec:**
-- `elbowed: true` — always right-angle connectors (Excalidraw "elbow connector")
-- Arrowhead at end only by default. Excalidraw stores this as
-  `endArrowhead: "arrow"` plus `endArrowheadSize: "s"`; xaligo metadata records
-  the logical PPTX/SVG head as `stealth`.
+- Connectors use right-angle routing by default.
+- Arrowhead is at the end only by default; the logical SVG/PPTX head is
+  `stealth`.
 - Stroke color `#1e1e1e`, stroke width `1px` for normal connections
 - `kind="route"` defaults to `#64748b`, `1px`, lower route layer, no arrowheads
 - `kind="traffic"` defaults to `#2563eb`, `1px`, higher traffic layer, directional end arrowhead
 - A traffic line with the same endpoints as a route line is drawn beside that
-  route in Excalidraw, SVG, and PPTX draw paths when possible.
+  route in SVG and PPTX draw paths when possible.
 - Start/end connect to the **edge midpoint** of the element
   - When direction is **downward**: label text element (`{id}-item-lbl`) bottom edge
   - Otherwise: icon image element (`{id}-item`) corresponding edge
-- Edges are fixed with normalized coordinates via `fixedPoint`, so arrows snap correctly when the file is opened
 - Arrow ID format: `conn-{src}-{dst}-{index}`
-- Arrow ID is registered in `boundElements` of the bound elements
-- Excalidraw item icons and labels are grouped with a 5x5 white anchor grid.
-  Anchor grid cells are drawn above connectors and below the item content so
-  lines do not cover icons/labels while endpoints remain visible.
-- Excalidraw routing uses previously placed lines to offset exact or near-exact
-  lane overlaps. Group header tags, item icons, and labels are treated as
-  routing obstacles where possible.
+- Routing uses previously placed lines to offset exact or near-exact lane
+  overlaps. Group header tags, item icons, and labels are treated as routing
+  obstacles where possible.
 - SVG/PPTX routing may additionally add automatic junction markers and line
-  jump masks after the Excalidraw scene is built. These are export-layer
-  rendering features, not extra `.xal` tags.
+  jump masks after the shared scene is built. These are export-layer rendering
+  features, not extra `.xal` tags.
 
 **Edge selection logic:**
 

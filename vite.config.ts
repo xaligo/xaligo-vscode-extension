@@ -7,6 +7,9 @@ const nodeBuiltins = [
 ];
 
 export default defineConfig({
+  resolve: {
+    conditions: ["node"]
+  },
   build: {
     lib: {
       entry: "src/extension.ts",

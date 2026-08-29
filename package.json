@@ -1,8 +1,8 @@
 {
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
-  "description": "VS Code language support, interactive preview, and structural diff for the xaligo .xal diagram DSL.",
-  "version": "0.0.18",
+  "description": "VS Code language-server support, interactive preview, and structural diff for the xaligo .xal diagram DSL.",
+  "version": "0.0.20",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
@@ -57,7 +57,7 @@
     "theme": "dark"
   },
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.91.0"
   },
   "categories": [
     "Programming Languages",
@@ -83,14 +83,8 @@
     "onCommand:xaligo.preview.close",
     "onCommand:xaligo.exportSvg",
     "onCommand:xaligo.exportPptx",
-    "onCommand:xaligo.exportExcalidraw",
-    "onCommand:xaligo.exportPdf",
-    "onCommand:xaligo.exportExcel",
-    "onCommand:xaligo.exportXyflow",
-    "onCommand:xaligo.exportIsoflow",
     "onCommand:xaligo.validate",
     "onCommand:xaligo.showVersion",
-    "onCommand:xaligo.runCliCommand",
     "onCommand:xaligo.showUpdates",
     "onCommand:xaligo.updateRuntime",
     "onCommand:xaligo.updateExtension",
@@ -123,6 +117,17 @@
         "path": "./syntaxes/xal.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "[xal]": {
+        "editor.quickSuggestions": {
+          "other": "on",
+          "comments": "off",
+          "strings": "on"
+        },
+        "editor.suggestOnTriggerCharacters": true,
+        "editor.wordBasedSuggestions": "off"
+      }
+    },
     "commands": [
       {
         "command": "xaligo.openPreview",
@@ -182,36 +187,6 @@
         "icon": "$(file-media)"
       },
       {
-        "command": "xaligo.exportExcalidraw",
-        "title": "Export as Excalidraw",
-        "category": "xaligo",
-        "icon": "$(json)"
-      },
-      {
-        "command": "xaligo.exportPdf",
-        "title": "Export as PDF",
-        "category": "xaligo",
-        "icon": "$(file-pdf)"
-      },
-      {
-        "command": "xaligo.exportExcel",
-        "title": "Export as Excel",
-        "category": "xaligo",
-        "icon": "$(table)"
-      },
-      {
-        "command": "xaligo.exportXyflow",
-        "title": "Export as XYFlow",
-        "category": "xaligo",
-        "icon": "$(type-hierarchy)"
-      },
-      {
-        "command": "xaligo.exportIsoflow",
-        "title": "Export as Isoflow",
-        "category": "xaligo",
-        "icon": "$(symbol-structure)"
-      },
-      {
         "command": "xaligo.validate",
         "title": "Validate Diagram",
         "category": "xaligo",
@@ -222,12 +197,6 @@
         "title": "Show Runtime Version",
         "category": "xaligo",
         "icon": "$(versions)"
-      },
-      {
-        "command": "xaligo.runCliCommand",
-        "title": "Run CLI Feature…",
-        "category": "xaligo",
-        "icon": "$(terminal)"
       },
       {
         "command": "xaligo.showUpdates",
@@ -275,11 +244,6 @@
           "command": "xaligo.exportPptx",
           "when": "resourceLangId == xal",
           "group": "navigation@4"
-        },
-        {
-          "command": "xaligo.exportExcalidraw",
-          "when": "resourceLangId == xal",
-          "group": "navigation@5"
         }
       ],
       "editor/context": [
@@ -302,11 +266,6 @@
           "command": "xaligo.exportPptx",
           "when": "resourceLangId == xal",
           "group": "navigation@4"
-        },
-        {
-          "command": "xaligo.exportExcalidraw",
-          "when": "resourceLangId == xal",
-          "group": "navigation@5"
         }
       ],
       "webview/title": [
@@ -349,7 +308,7 @@
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "description": "Absolute path to a xaligo native CLI. Leave empty to use the newest healthy managed or bundled runtime. Structural diff requires xaligo 0.1.21 or newer."
+          "description": "Absolute path to a xaligo native CLI. Leave empty to use the newest healthy managed or bundled runtime. Language-server features require xaligo 0.2.1 or newer."
         },
         "xaligo.commandTimeoutSeconds": {
           "type": "number",
@@ -358,14 +317,6 @@
           "maximum": 3600,
           "scope": "machine-overridable",
           "description": "Maximum time in seconds for renderer, validation, Markdown, and diff commands. Increase this when Windows security scanning or large documents need more time."
-        },
-        "xaligo.servePort": {
-          "type": "integer",
-          "default": 8080,
-          "minimum": 1,
-          "maximum": 65535,
-          "scope": "machine-overridable",
-          "description": "HTTP port used by xaligo: Run CLI Feature… > Serve live preview."
         }
       }
     }
@@ -383,7 +334,7 @@
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^26.1.0",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.91.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vscode/vsce": "^3.9.2",
     "typescript": "^6.0.3",
@@ -392,9 +343,10 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@xaligo/xaligo": "0.1.27",
+    "@xaligo/xaligo": "0.2.1",
     "element-plus": "^2.14.3",
     "tar": "^7.5.22",
+    "vscode-languageclient": "^10.1.1",
     "vue": "^3.5.40",
     "vue-markdown-render": "^2.3.1"
   }

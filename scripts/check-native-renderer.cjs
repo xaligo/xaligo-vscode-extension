@@ -33,10 +33,8 @@ const requiredResources = [
   path.join('etc', 'resources', 'aws', 'app.yaml'),
   path.join('etc', 'resources', 'aws', 'service-catalog.csv'),
   path.join('etc', 'resources', 'aws', 'service-index.csv'),
-  path.join('etc', 'resources', 'aws', 'isoflow-icons.json'),
   path.join('etc', 'resources', 'aws', 'svg', 'Architecture-Group-Icons', 'AWS-Account_32.svg'),
-  path.join('etc', 'resources', 'aws', 'svg', 'Tabler-Icons', 'LICENSE'),
-  path.join('external', 'wasm', 'xaligo.wasm')
+  path.join('etc', 'resources', 'aws', 'svg', 'Tabler-Icons', 'LICENSE')
 ];
 
 for (const relativePath of requiredResources) {
@@ -64,6 +62,10 @@ const diffHelp = run(['diff', '--help']);
 if (!diffHelp.includes('xaligo diff <before.xal> <after.xal>')) {
   throw new Error(`bundled xaligo does not provide structural diff:\n${diffHelp.trim()}`);
 }
+const lspHelp = run(['lsp', '--help']);
+if (!lspHelp.includes('Language Server Protocol 3.18')) {
+  throw new Error(`bundled xaligo does not provide its LSP 3.18 server:\n${lspHelp.trim()}`);
+}
 
 const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'xaligo-renderer-check-'));
 try {
@@ -75,12 +77,7 @@ try {
   run(['validate', inputPath]);
   const formats = [
     ['svg', 'svg', 'svg'],
-    ['excalidraw', 'excalidraw', 'json'],
-    ['pptx', 'pptx', 'zip'],
-    ['pdf', 'pdf', 'pdf'],
-    ['excel', 'xlsx', 'zip'],
-    ['xyflow', 'xyflow.json', 'json'],
-    ['isoflow', 'isoflow.json', 'json']
+    ['pptx', 'pptx', 'zip']
   ];
   for (const [format, extension, signature] of formats) {
     const outputPath = path.join(temporaryDirectory, `smoke.${extension}`);
@@ -88,11 +85,7 @@ try {
     const output = fs.readFileSync(outputPath);
     const valid = signature === 'svg'
       ? output.subarray(0, 512).toString('utf8').includes('<svg')
-      : signature === 'json'
-        ? isJson(output)
-        : signature === 'zip'
-          ? output.subarray(0, 2).toString('ascii') === 'PK'
-          : output.subarray(0, 5).toString('ascii') === '%PDF-';
+      : output.subarray(0, 2).toString('ascii') === 'PK';
     if (!valid) {
       throw new Error(`bundled xaligo failed its ${format} output signature check`);
     }
@@ -101,13 +94,4 @@ try {
   fs.rmSync(temporaryDirectory, { recursive: true, force: true });
 }
 
-function isJson(value) {
-  try {
-    JSON.parse(value.toString('utf8'));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-console.log(`Verified bundled renderer resources and all export formats: ${binary}`);
+console.log(`Verified bundled xaligo SVG, PPTX, diff, and LSP support: ${binary}`);

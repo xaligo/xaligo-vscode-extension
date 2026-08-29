@@ -1,14 +1,10 @@
 # xaligo
 
-VS Code language support, interactive SVG preview, and structural diff for the
-xaligo `.xal` diagram DSL.
+VS Code language-server support, interactive SVG preview, and structural diff
+for the xaligo `.xal` diagram DSL.
 
-The extension exposes direct exports for SVG, PPTX, Excalidraw, PDF, Excel,
-XYFlow, and Isoflow, plus validation and runtime-version commands. Use
-**xaligo: Run CLI Feature…** from the command palette for `serve`, Markdown
-rendering, source generation, service insertion, project
-initialization, CLI help, Bash/Fish/PowerShell/Zsh completion, or any CLI
-command and flag supported by the selected xaligo runtime.
+The extension exposes direct SVG, PPTX, and rendered-Markdown exports,
+validation, runtime-version commands, and automatic language-server support.
 
 ![xaligo logo](images/xaligo-readme-logo.png)
 
@@ -18,6 +14,10 @@ command and flag supported by the selected xaligo runtime.
 - Registers an original-color language icon for `.xal` files without replacing
   the user's active file icon theme.
 - Provides syntax highlighting for xaligo tags, attributes, strings, comments, XML entities, spacing classes, and connection shorthands.
+- Starts the bundled xaligo Language Server Protocol 3.18 server for
+  diagnostics, symbols, semantic tokens, completion, hover, definitions, and
+  references while editing saved or untitled `.xal` documents. Typing `<`
+  opens LSP-backed tag suggestions, including V1, AWS, data, and UML tags.
 - Colors common xaligo and AWS group tags in the editor for faster scanning.
 - Adds comment, bracket, auto-closing, folding, and indentation behavior for `.xal` files.
 - Opens an SVG preview with a grouped, icon-first Preview / Diff menu panel.
@@ -28,8 +28,7 @@ command and flag supported by the selected xaligo runtime.
 - Compares two `.xal` files structurally and displays removed and added diagrams
   side by side with pale red and pale green highlights.
 - Refreshes the preview when the source file is saved.
-- Exports `.xal` diagrams to SVG, PPTX, Excalidraw, PDF, Excel, XYFlow, and
-  Isoflow files.
+- Exports `.xal` diagrams to SVG or PPTX.
 - Uses `<name>.services.csv` or the nearest `services.csv` for preview labels and legends when present.
 - Updates the xaligo runtime and the VS Code extension independently from the command palette.
 - Ships an offline copy of the `.xal` DSL spec and diagram-authoring guide
@@ -50,12 +49,12 @@ Diff, Fit, and Refresh controls. View position and manually arranged
 frame-card positions are retained when a file is rendered again.
 
 The menu is a one-button-wide vertical panel with **View** and **Output** tabs.
-The display tab contains diagram, Markdown, and diff previews. The output tab
-shows the seven diagram formats only for a diagram, Markdown conversion only
-for Markdown, and no misleading export target for structural diff. Hover or
-keyboard-focus any icon button to see its name. Validation, source generation,
-runtime management, and shell completion remain available from the command
-palette rather than the preview panel. Markdown preview defaults to A4 portrait.
+The display tab contains diagram, Markdown, and diff previews. For a diagram,
+the output tab shows SVG and PPTX actions; it shows Markdown conversion only
+for Markdown and no misleading export target for structural diff. Hover or
+keyboard-focus any icon button to see its name. Validation and runtime
+management remain available from the command palette. Markdown preview defaults
+to A4 portrait.
 Use the **Markdown** controls in the display tab to select another paper size
 or automatic, portrait, or landscape orientation. These controls size the
 Markdown page itself; embedded SVG dimensions do not determine the page size.
@@ -83,32 +82,31 @@ line-oriented text diff. Saving either selected file refreshes the comparison.
 The current core diff command does not accept `services.csv`, so service-label
 overrides used by the normal preview are not applied to diff images.
 
-To export the current `.xal` file, run **xaligo: Export as SVG**, **xaligo: Export as PPTX**, or **xaligo: Export as Excalidraw** from the command palette or editor menu, then choose the output file path.
+To export the current `.xal` file, run **xaligo: Export as SVG** or
+**xaligo: Export as PPTX** from the command palette or editor menu, then choose
+the output path.
 
 The native renderer is bundled in the VSIX, so activation does not require a
 download. Native binaries are included for macOS, Linux, and Windows on x64
-and arm64. Structural diff requires xaligo 0.1.21 or newer. During core
-development, set `xaligo.executablePath` to an absolute path for a compatible
-native xaligo CLI. A custom CLI runs with its own resource discovery; the
-extension does not force it to use resources from the bundled package.
+and arm64. This release bundles
+[xaligo 0.2.1](https://github.com/xaligo/xaligo/releases/tag/v0.2.1).
+During core development, set `xaligo.executablePath` to an absolute path for a
+compatible native xaligo CLI; LSP support requires `0.2.1` or newer. A custom
+CLI runs with its own resource discovery, and the extension does not force it
+to use resources from the bundled package.
 
 Renderer commands default to a 120-second timeout and can be cancelled from
 progress notifications. Set `xaligo.commandTimeoutSeconds` higher for very
 large documents or hosts where Windows security scanning delays a new binary.
-
-The **Serve live preview** CLI feature listens on port `8080` by default. Set
-`xaligo.servePort` to another port from VS Code Settings; the generated command
-remains editable before the extension launches it in a terminal.
 
 ## Updates
 
 Run **xaligo: Manage Updates** from the command palette. Runtime and extension
 updates are separate operations:
 
-- **Update xaligo Runtime** checks the npm release metadata, verifies the npm
-  package with its SHA-512 integrity value, verifies the platform binary with
-  the GitHub Release SHA-256 digest, verifies every required catalog, SVG, and
-  WASM resource, and runs validation plus all seven render-format smoke tests
+- **Update xaligo Runtime** checks release metadata, verifies the package and
+  platform binary digests, verifies every required catalog and SVG resource,
+  and runs validation plus SVG, PPTX, structural-diff, and LSP smoke tests
   before activating it. A failed update leaves the active runtime unchanged.
 - **Update xaligo Extension** delegates installation to VS Code's extension
   update mechanism and offers to reload the window afterward.
@@ -163,6 +161,16 @@ the full service-scope guidance behind this layout (why the load balancer sits
 at VPC level while EC2/RDS sit inside an availability zone) and
 [docs/xal-spec.md](docs/xal-spec.md) for every tag and attribute.
 
+Native V2 uses a distinct `<scene version="2">` root:
+
+```xml
+<scene version="2" width="320" height="180" layout="horizontal">
+  <item id="client">Client</item>
+  <item id="api">API</item>
+  <line source="client" target="api" target-arrow="arrow" />
+</scene>
+```
+
 ## Documentation for AI assistants
 
 This extension ships an offline copy of the `.xal` DSL reference under
@@ -176,9 +184,8 @@ for how to locate them once installed and an example prompt.
 
 ## Requirements
 
-- VS Code 1.90.0 or newer.
+- VS Code 1.91.0 or newer.
 - A trusted workspace before invoking the bundled native renderer.
-- xaligo 0.1.21 or newer for structural diff.
 - Network access only when an update is explicitly requested.
 
 ## Development

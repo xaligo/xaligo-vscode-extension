@@ -4,15 +4,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDiffArguments,
-  buildGenerateXalArguments,
   buildMarkdownRenderArguments,
   buildRenderArguments,
-  buildServeArguments,
   createTemporaryOutputDirectory,
-  defaultServePort,
   diffOutputPaths,
   isMarkdownFilePath,
-  normalizeServePort,
   parseCommandWarnings,
   parseDiffSummary,
   parseRenderedOutputPaths,
@@ -25,26 +21,6 @@ describe("xaligo command contracts", () => {
     expect(isMarkdownFilePath("guide.md")).toBe(true);
     expect(isMarkdownFilePath("GUIDE.MARKDOWN")).toBe(true);
     expect(isMarkdownFilePath("diagram.xal")).toBe(false);
-  });
-
-  it("builds serve arguments from the configured port", () => {
-    expect(buildServeArguments("diagram.xal")).toEqual([
-      "serve",
-      "diagram.xal",
-      "--address",
-      "127.0.0.1:8080"
-    ]);
-    expect(buildServeArguments("guide.md", 9090)).toEqual([
-      "serve",
-      "guide.md",
-      "--address",
-      "127.0.0.1:9090"
-    ]);
-    expect(defaultServePort).toBe(8080);
-    expect(normalizeServePort(65535)).toBe(65535);
-    expect(normalizeServePort(0)).toBe(defaultServePort);
-    expect(normalizeServePort(65536)).toBe(defaultServePort);
-    expect(normalizeServePort(8080.5)).toBe(defaultServePort);
   });
 
   it("builds Markdown preview assets without sizing embedded SVGs as pages", () => {
@@ -120,35 +96,6 @@ describe("xaligo command contracts", () => {
     expect(diffOutputPaths(path.join("tmp", "architecture.SVG"))).toEqual([
       path.join("tmp", "architecture-removed.svg"),
       path.join("tmp", "architecture-added.svg")
-    ]);
-  });
-
-  it("supplies generation defaults required by older bundled runtimes", () => {
-    expect(buildGenerateXalArguments("architecture.xal")).toEqual([
-      "generate",
-      "xal",
-      "--clouds",
-      "1",
-      "--accounts",
-      "1",
-      "--regions",
-      "1",
-      "--azs",
-      "2",
-      "--az-layout",
-      "grid",
-      "--subnets",
-      "2",
-      "--spacing",
-      "both",
-      "--start",
-      "top",
-      "--paper",
-      "A4",
-      "--orientation",
-      "landscape",
-      "--output",
-      "architecture.xal"
     ]);
   });
 

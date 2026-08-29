@@ -3,14 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { type DiffSummary } from "./preview-contract";
 
-export type XaligoRenderFormat =
-  | "svg"
-  | "pptx"
-  | "excalidraw"
-  | "pdf"
-  | "excel"
-  | "xyflow"
-  | "isoflow";
+export type XaligoRenderFormat = "svg" | "pptx";
 
 export interface XaligoRenderOptions {
   combineFrames?: boolean;
@@ -26,31 +19,8 @@ export interface XaligoExecutionOutput {
   stderr: string;
 }
 
-export const defaultServePort = 8080;
-
 export function isMarkdownFilePath(filePath: string): boolean {
   return [".md", ".markdown"].includes(path.extname(filePath).toLowerCase());
-}
-
-export function normalizeServePort(value: unknown): number {
-  return typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= 65535
-    ? value
-    : defaultServePort;
-}
-
-export function buildServeArguments(
-  sourcePath: string,
-  port: number = defaultServePort
-): string[] {
-  return [
-    "serve",
-    sourcePath,
-    "--address",
-    `127.0.0.1:${normalizeServePort(port)}`
-  ];
 }
 
 export function buildMarkdownRenderArguments(
@@ -93,35 +63,6 @@ export function buildRenderArguments(
 
 export function buildDiffArguments(beforePath: string, afterPath: string, outputPrefix: string): string[] {
   return ["diff", beforePath, afterPath, "--output", outputPrefix];
-}
-
-export function buildGenerateXalArguments(outputPath: string): string[] {
-  return [
-    "generate",
-    "xal",
-    "--clouds",
-    "1",
-    "--accounts",
-    "1",
-    "--regions",
-    "1",
-    "--azs",
-    "2",
-    "--az-layout",
-    "grid",
-    "--subnets",
-    "2",
-    "--spacing",
-    "both",
-    "--start",
-    "top",
-    "--paper",
-    "A4",
-    "--orientation",
-    "landscape",
-    "--output",
-    outputPath
-  ];
 }
 
 export function diffOutputPaths(outputPrefix: string): [string, string] {

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.0.20
+
+- Replaced the `main-40` prerelease runtime package and native assets with the
+  official stable `xaligo 0.2.1` (`v0.2.1`) release.
+- Pinned the bundled `@xaligo/xaligo` dependency to the published npm registry
+  version and updated stable-release identity checks.
+- Removed the terminal-backed generic CLI launcher, its Serve-port setting, and
+  all VS Code Terminal API usage. Markdown export now runs as a cancellable
+  background action.
+
+## 0.0.19
+
+- Updated the bundled runtime to the `xaligo 0.2.1 main 40` prerelease package
+  and native binaries.
+- Added automatic Language Server Protocol 3.18 integration for diagnostics,
+  symbols, semantic tokens, completion, hover, definitions, and references.
+- Enabled `.xal` editing suggestions and supplemented the native LSP snippet
+  set with the full lexical tag catalog, including AWS V1 tags.
+- Aligned export actions with the current CLI: SVG and PPTX file export; removed
+  the retired Excalidraw, PDF, Excel, XYFlow, and Isoflow actions.
+- Updated runtime integrity and packaging checks for the statically linked
+  native renderer, including SVG, PPTX, diff, and LSP smoke tests.
+- Expanded syntax highlighting and offline documentation for the V2
+  `<scene version="2">` profile.
+
 ## 0.0.18
 
 - Updated the bundled xaligo renderer dependency to the stable

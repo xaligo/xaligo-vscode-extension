@@ -2,7 +2,13 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 interface ExtensionManifest {
+  version: string;
+  engines: {
+    vscode: string;
+  };
+  dependencies: Record<string, string>;
   contributes: {
+    configurationDefaults: Record<string, unknown>;
     commands: Array<{
       command: string;
       icon?: string | { light: string; dark: string };
@@ -49,12 +55,38 @@ describe("preview editor title action", () => {
     );
   });
 
-  it("contributes a bounded serve port setting with the current default", () => {
-    expect(manifest.contributes.configuration.properties["xaligo.servePort"]).toMatchObject({
-      type: "integer",
-      default: 8080,
-      minimum: 1,
-      maximum: 65535
+  it("shows LSP suggestions while editing xaligo documents", () => {
+    expect(manifest.contributes.configurationDefaults["[xal]"]).toEqual({
+      "editor.quickSuggestions": {
+        other: "on",
+        comments: "off",
+        strings: "on"
+      },
+      "editor.suggestOnTriggerCharacters": true,
+      "editor.wordBasedSuggestions": "off"
     });
+  });
+
+  it("targets stable xaligo 0.2.1 without exposing terminal-backed actions", () => {
+    const commandIDs = manifest.contributes.commands.map(({ command }) => command);
+    expect(manifest.version).toBe("0.0.20");
+    expect(manifest.engines.vscode).toBe("^1.91.0");
+    expect(manifest.dependencies["@xaligo/xaligo"]).toBe("0.2.1");
+    expect(manifest.dependencies["vscode-languageclient"]).toBe("^10.1.1");
+    expect(commandIDs).not.toEqual(expect.arrayContaining([
+      "xaligo.renderTerminal",
+      "xaligo.runCliCommand"
+    ]));
+    expect(manifest.contributes.commands).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ icon: "$(terminal)" })
+    ]));
+    expect(manifest.contributes.configuration.properties).not.toHaveProperty("xaligo.servePort");
+    expect(commandIDs).not.toEqual(expect.arrayContaining([
+      "xaligo.exportExcalidraw",
+      "xaligo.exportPdf",
+      "xaligo.exportExcel",
+      "xaligo.exportXyflow",
+      "xaligo.exportIsoflow"
+    ]));
   });
 });

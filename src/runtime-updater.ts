@@ -421,16 +421,12 @@ async function smokeTestRuntime(
   );
   const environment = { ...process.env, XALIGO_HOME: packageRoot };
   await runExecutable(binary, ["diff", "--help"], environment, signal);
+  await runExecutable(binary, ["lsp", "--help"], environment, signal);
   await runExecutable(binary, ["validate", inputPath], environment, signal);
 
   const formats = [
     { format: "svg", extension: "svg", signature: "svg" },
-    { format: "excalidraw", extension: "excalidraw", signature: "json" },
-    { format: "pptx", extension: "pptx", signature: "zip" },
-    { format: "pdf", extension: "pdf", signature: "pdf" },
-    { format: "excel", extension: "xlsx", signature: "zip" },
-    { format: "xyflow", extension: "xyflow.json", signature: "json" },
-    { format: "isoflow", extension: "isoflow.json", signature: "json" }
+    { format: "pptx", extension: "pptx", signature: "zip" }
   ] as const;
   for (const candidate of formats) {
     throwIfCancelled(signal);
@@ -447,28 +443,15 @@ async function smokeTestRuntime(
 
 async function verifySmokeOutput(
   outputPath: string,
-  signature: "svg" | "json" | "zip" | "pdf",
+  signature: "svg" | "zip",
   format: string
 ): Promise<void> {
   const output = await fs.readFile(outputPath);
   const valid = signature === "svg"
     ? output.toString("utf8", 0, Math.min(output.length, 512)).includes("<svg")
-    : signature === "json"
-      ? isJson(output)
-      : signature === "zip"
-        ? output.subarray(0, 2).equals(Buffer.from("PK"))
-        : output.subarray(0, 5).equals(Buffer.from("%PDF-"));
+    : output.subarray(0, 2).equals(Buffer.from("PK"));
   if (!valid) {
     throw new Error(`The updated xaligo runtime failed its ${format} smoke test.`);
-  }
-}
-
-function isJson(value: Buffer): boolean {
-  try {
-    JSON.parse(value.toString("utf8"));
-    return true;
-  } catch {
-    return false;
   }
 }
 

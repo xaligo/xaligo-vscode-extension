@@ -72,6 +72,13 @@ describe("runtime identity ordering", () => {
     expect(compareRuntimeIdentities(main, stable)).toBe(-1);
   });
 
+  it("prefers xaligo v0.2.1 over the preceding main-40 build", () => {
+    const stable = runtime("0.2.1", "v0.2.1", "0.2.1", false);
+    const main40 = runtime("0.2.1-40", "main-40", "0.2.1", true);
+    expect(compareRuntimeIdentities(stable, main40)).toBe(1);
+    expect(compareRuntimeIdentities(main40, stable)).toBe(-1);
+  });
+
   it("compares main build runs numerically, including values beyond safe integers", () => {
     expect(compareRuntimeIdentities(runtime("1.2.3", "main-30"), runtime("1.2.3", "main-9"))).toBe(1);
     expect(compareRuntimeIdentities(

@@ -54,17 +54,7 @@ export const exportFormats: Record<XaligoRenderFormat, ExportFormat> = {
     extension: "pptx",
     label: "PowerPoint",
     title: "Export xaligo PPTX"
-  },
-  excalidraw: {
-    renderFormat: "excalidraw",
-    extension: "excalidraw",
-    label: "Excalidraw",
-    title: "Export xaligo Excalidraw"
-  },
-  pdf: { renderFormat: "pdf", extension: "pdf", label: "PDF", title: "Export xaligo PDF" },
-  excel: { renderFormat: "excel", extension: "xlsx", label: "Excel", title: "Export xaligo Excel" },
-  xyflow: { renderFormat: "xyflow", extension: "xyflow.json", label: "XYFlow", title: "Export xaligo XYFlow" },
-  isoflow: { renderFormat: "isoflow", extension: "isoflow.json", label: "Isoflow", title: "Export xaligo Isoflow" }
+  }
 };
 
 export interface XaligoProcessResult {
@@ -197,15 +187,6 @@ export class XaligoRenderer {
   ): Promise<XaligoProcessResult> {
     const runtime = await this.runtimeResolver.resolve();
     return runXaligo(runtime, args, timeout ?? await configuredCommandTimeout(), signal);
-  }
-
-  async terminalLaunch(args: string[]): Promise<{ binary: string; args: string[]; env: Record<string, string> }> {
-    const runtime = await this.runtimeResolver.resolve();
-    return {
-      binary: runtime.binary,
-      args,
-      env: runtime.source === "custom" ? {} : { XALIGO_HOME: runtime.packageRoot }
-    };
   }
 }
 

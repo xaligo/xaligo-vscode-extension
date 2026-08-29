@@ -4,12 +4,12 @@
 > [README.md](README.md) for how to point an AI assistant at this file.
 > DSL specification: [xal-spec.md](xal-spec.md).
 
-Standard workflow for creating Excalidraw and PPTX diagrams with the `.xal`
-DSL. The command-line examples below assume the `xaligo` CLI is on your
+Standard workflow for creating SVG and PPTX diagrams with the `.xal` DSL. The
+command-line examples below assume the `xaligo` CLI is on your
 `PATH` (it ships as `node_modules/@xaligo/xaligo/bin/xaligo.cjs`). Inside this
-VS Code extension, you can instead use **xaligo: Run CLI Feature…** from the
-command palette, or export commands (**xaligo: Export as SVG/PPTX/...**) for
-the currently open `.xal` file — the underlying CLI behavior is the same.
+VS Code extension, use the export commands (**xaligo: Export as SVG/PPTX**) for
+the currently open `.xal` file. Run the command-line examples in your own shell
+when you need lower-level CLI operations.
 
 ---
 
@@ -62,7 +62,7 @@ Example output:
 113,Amazon ElastiCache,EC,In-memory caching,Session and query cache,
 ```
 
-> **Note:** `render --format excalidraw` warns to stderr when an `<item id="N">` in the .xal
+> **Note:** rendering with `--services` warns when an `<item id="N">` in the .xal
 > is not listed in services.csv, or when a services.csv entry has no corresponding
 > `<item>` in the diagram. Keep both files in sync to suppress these warnings.
 
@@ -184,16 +184,15 @@ larger worked example of this same pattern.
 
 ```bash
 xaligo render sample.xal \
-  --format excalidraw \
-  -o output/sample.excalidraw \
+  --format svg \
+  -o output/sample.svg \
   --services services.csv
 ```
 
 `--services` is strongly recommended for this workflow. The CSV provides
 icon label overrides and service metadata. In this extension, use
-**xaligo: Export as Excalidraw** (or the matching command for another format)
-instead — it discovers the nearest `services.csv`/`<name>.services.csv`
-automatically.
+**xaligo: Export as SVG** or **xaligo: Export as PPTX** instead — both discover
+the nearest `services.csv`/`<name>.services.csv` automatically.
 
 > **Note:** Create the output directory if it does not already exist.
 > ```bash
@@ -207,24 +206,36 @@ automatically.
 | Command | Description |
 |---|---|
 | `grep -i "<name>" .../etc/resources/aws/service-index.csv` | Search for a service ID |
-| `xaligo render <xal> --format excalidraw -o <out> --services <csv>` | Convert .xal → .excalidraw with legend |
+| `xaligo icon search <query>` | Search the local namespaced SVG icon registry |
 | `xaligo render <xal> --format svg -o <out.svg> --services <csv>` | Convert .xal → SVG with a service legend |
-| `xaligo render <xal> --format pptx -o <out.pptx> --services <csv> --paper A3 --orientation landscape` | Convert .xal → PPTX when the WASI exporter is configured |
-| `xaligo render <xal> --format pdf -o <out.pdf>` | Convert .xal → PDF |
-| `xaligo render <xal> --format excel -o <out.xlsx>` | Convert .xal → Excel |
-| `xaligo add service --list <csv> --file <excalidraw>` | Add service icons to an existing file |
-| `xaligo render <xal> -o <excalidraw>` | Convert .xal → .excalidraw without legend |
+| `xaligo render <xal> --format pptx -o <out.pptx> --services <csv> --paper A3 --orientation landscape` | Convert .xal → PPTX with the native Rust exporter |
+| `xaligo rag index` / `xaligo rag search <query>` | Build or query the local Markdown/semantic knowledge index |
 
 ## PPTX Notes
 
-- Native CLI export requires `xaligo.wasm`; the npm/WASM API currently
-  exports through PptxGenJS.
+- PPTX export is statically linked into the native xaligo binary; there is no
+  separate WASM runtime resource.
 - PPTX export adds separate legend slide(s) after the diagram slide.
 - Legend pages use 4 columns and show icon, abbreviation, and official name.
 - Use `--paper A3 --orientation landscape --paper-margin-top 0.75 --paper-margin-bottom 0.75`
   for a large AWS diagram.
-- Connector routing is resolved in Go/WASM and avoids icon/label obstacles.
+- Connector routing uses the shared native scene and avoids icon/label
+  obstacles.
 - Group header tag labels are intentionally single-line in PPTX output; keep
   tag background width and label width in sync when adjusting tag text metrics.
 - Keep a diagram's `.xal` and `services.csv` in sync so the legend includes
   every diagram service.
+
+## Native V2
+
+V2 uses the reject-safe `<scene version="2">` root introduced in xaligo 0.2.1.
+V1 remains the frozen compatibility profile.
+
+```xml
+<scene version="2" width="320" height="180" layout="horizontal">
+  <item id="client">Client</item>
+  <item id="api" icon="builtin:service">API</item>
+  <line source="client" target="api" routing="orthogonal"
+        target-arrow="arrow" />
+</scene>
+```

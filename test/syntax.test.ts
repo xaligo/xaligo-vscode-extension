@@ -21,9 +21,11 @@ function isMatchedByNamedPattern(repositoryName: string, scopeName: string, valu
   );
 }
 
-describe("latest V1 syntax highlighting", () => {
+describe("latest V1 and V2 syntax highlighting", () => {
   it.each([
     "xaligo",
+    "scene",
+    "capture",
     "frames",
     "rectangle",
     "port",
@@ -36,6 +38,10 @@ describe("latest V1 syntax highlighting", () => {
     "sequence-diagram",
     "create-message",
     "connections",
+    "line",
+    "route",
+    "traffic",
+    "label",
     "bend",
     "waypoint"
   ])(
@@ -52,6 +58,19 @@ describe("latest V1 syntax highlighting", () => {
 
   it.each([
     "version",
+    "source",
+    "target",
+    "routing",
+    "weight",
+    "fill",
+    "stroke",
+    "corner-radius",
+    "opacity",
+    "shape",
+    "icon",
+    "icon-ref",
+    "source-arrow",
+    "target-arrow",
     "overflow",
     "font-size",
     "src-anchor",

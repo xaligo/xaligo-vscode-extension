@@ -19,9 +19,9 @@ describe("runtime package layout", () => {
       }
       await expect(hasCompleteRuntimeLayout(root)).resolves.toBe(true);
 
-      await writeFile(path.join(root, "external", "wasm", "xaligo.wasm"), "");
+      await writeFile(path.join(root, "etc", "resources", "aws", "service-catalog.csv"), "");
       await expect(missingRuntimeFiles(root)).resolves.toEqual([
-        path.join("external", "wasm", "xaligo.wasm")
+        path.join("etc", "resources", "aws", "service-catalog.csv")
       ]);
     } finally {
       await rm(root, { recursive: true, force: true });

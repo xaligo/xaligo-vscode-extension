@@ -5,17 +5,17 @@ import * as vscode from "vscode";
 import { xaligoLogger } from "./logger";
 import { readRenderedMarkdownPreview } from "./markdown-preview";
 import type {
-  CliFeature,
   MarkdownPreviewSettings,
+  PreviewAction,
   PreviewHostMessage,
   PreviewMode,
   PreviewPanelState,
   PreviewWebviewMessage
 } from "./preview-contract";
 import {
-  cliFeatures,
   defaultMarkdownPreviewSettings,
-  parseMarkdownPreviewSettings
+  parseMarkdownPreviewSettings,
+  previewActions
 } from "./preview-contract";
 import { readPreviewArtifacts } from "./preview-artifacts";
 import { XaligoRenderer } from "./xaligo";
@@ -69,8 +69,8 @@ export class XaligoPreviewController implements vscode.Disposable {
     private readonly context: vscode.ExtensionContext,
     private readonly renderer: XaligoRenderer,
     private readonly showUpdates: () => Promise<void>,
-    private readonly runCliFeature: (
-      feature: CliFeature,
+    private readonly runPreviewAction: (
+      action: PreviewAction,
       sourceUri?: vscode.Uri,
       markdown?: MarkdownPreviewSettings
     ) => Promise<void>
@@ -303,18 +303,21 @@ export class XaligoPreviewController implements vscode.Disposable {
         }
         break;
       }
-      case "runCliFeature":
-        if (typeof candidate.feature === "string" && cliFeatures.includes(candidate.feature as CliFeature)) {
-          const feature = candidate.feature as CliFeature;
-          const markdown = feature === "preview-markdown"
+      case "runPreviewAction":
+        if (
+          typeof candidate.action === "string" &&
+          previewActions.includes(candidate.action as PreviewAction)
+        ) {
+          const action = candidate.action as PreviewAction;
+          const markdown = action === "preview-markdown"
             ? candidate.markdown === undefined
               ? { ...defaultMarkdownPreviewSettings }
               : parseMarkdownPreviewSettings(candidate.markdown)
             : undefined;
-          if (feature === "preview-markdown" && markdown) {
+          if (action === "preview-markdown" && markdown) {
             await this.openMarkdownPreview(undefined, markdown);
-          } else if (feature !== "preview-markdown") {
-            await this.runCliFeature(feature, this.activeSourceUri());
+          } else if (action !== "preview-markdown") {
+            await this.runPreviewAction(action, this.activeSourceUri());
           }
         }
         break;

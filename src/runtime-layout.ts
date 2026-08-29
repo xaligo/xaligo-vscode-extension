@@ -7,7 +7,6 @@ export const requiredRuntimeRelativeFiles = [
   path.join("etc", "resources", "aws", "app.yaml"),
   path.join("etc", "resources", "aws", "service-catalog.csv"),
   path.join("etc", "resources", "aws", "service-index.csv"),
-  path.join("etc", "resources", "aws", "isoflow-icons.json"),
   path.join(
     "etc",
     "resources",
@@ -16,8 +15,7 @@ export const requiredRuntimeRelativeFiles = [
     "Architecture-Group-Icons",
     "AWS-Account_32.svg"
   ),
-  path.join("etc", "resources", "aws", "svg", "Tabler-Icons", "LICENSE"),
-  path.join("external", "wasm", "xaligo.wasm")
+  path.join("etc", "resources", "aws", "svg", "Tabler-Icons", "LICENSE")
 ] as const;
 
 export async function missingRuntimeFiles(packageRoot: string): Promise<string[]> {

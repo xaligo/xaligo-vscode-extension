@@ -1,19 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as vscode from "vscode";
-import { formatCommandArgument, parseCommandArguments } from "./cli-input";
+import { XaligoLanguageServer } from "./language-server";
 import { createXaligoLogger, xaligoLogger } from "./logger";
 import { XaligoPreviewController } from "./preview";
-import type { CliFeature } from "./preview-contract";
+import type { PreviewAction } from "./preview-contract";
 import { XaligoRuntimeResolver } from "./runtime-resolver";
 import { XaligoUpdates } from "./updates";
-import {
-  buildGenerateXalArguments,
-  buildServeArguments,
-  defaultServePort,
-  isMarkdownFilePath,
-  normalizeServePort
-} from "./xaligo-command";
+import { isMarkdownFilePath } from "./xaligo-command";
 import {
   type ExportFormat,
   exportFormats,
@@ -30,14 +24,8 @@ const previewResetViewCommand = "xaligo.preview.resetView";
 const previewCloseCommand = "xaligo.preview.close";
 const exportSvgCommand = "xaligo.exportSvg";
 const exportPptxCommand = "xaligo.exportPptx";
-const exportExcalidrawCommand = "xaligo.exportExcalidraw";
-const exportPdfCommand = "xaligo.exportPdf";
-const exportExcelCommand = "xaligo.exportExcel";
-const exportXyflowCommand = "xaligo.exportXyflow";
-const exportIsoflowCommand = "xaligo.exportIsoflow";
 const validateCommand = "xaligo.validate";
 const showVersionCommand = "xaligo.showVersion";
-const runCliCommand = "xaligo.runCliCommand";
 const showUpdatesCommand = "xaligo.showUpdates";
 const updateRuntimeCommand = "xaligo.updateRuntime";
 const updateExtensionCommand = "xaligo.updateExtension";
@@ -46,6 +34,8 @@ const tagNamePattern = /<\/?([a-z][a-z0-9-]*)\b/g;
 const commentPattern = /<!--[\s\S]*?-->/g;
 
 const tagColors: Record<string, string> = {
+  scene: "#fb7185",
+  capture: "#f97316",
   frames: "#fb7185",
   frame: "#ff6b6b",
   container: "#f59e0b",
@@ -85,7 +75,11 @@ const tagColors: Record<string, string> = {
   waypoint: "#fbbf24",
   bends: "#fcd34d",
   points: "#fcd34d",
-  path: "#fcd34d"
+  path: "#fcd34d",
+  line: "#f43f5e",
+  route: "#fb7185",
+  traffic: "#38bdf8",
+  label: "#fbbf24"
 };
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -95,16 +89,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const runtimeResolver = new XaligoRuntimeResolver(context);
   const renderer = new XaligoRenderer(runtimeResolver);
+  const languageServer = new XaligoLanguageServer(runtimeResolver);
   const updates = new XaligoUpdates(context, runtimeResolver);
   const previewController = new XaligoPreviewController(
     context,
     renderer,
     () => updates.showMenu(),
-    async (feature, sourceUri) => {
+    async (action, sourceUri) => {
       const document = sourceUri
         ? await vscode.workspace.openTextDocument(sourceUri)
         : vscode.window.activeTextEditor?.document;
-      await runCliFeature(renderer, document, feature);
+      await runPreviewAction(renderer, document, action);
     }
   );
   const registerAsyncCommand = (
@@ -121,7 +116,9 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   context.subscriptions.push(new XaligoTagColorController());
+  context.subscriptions.push(languageServer);
   context.subscriptions.push(previewController);
+  languageServer.start();
   registerAsyncCommand(previewCommand, () => (
     openPreviewForDocument(
       previewController,
@@ -150,34 +147,10 @@ export function activate(context: vscode.ExtensionContext): void {
   registerAsyncCommand(exportPptxCommand, () => (
     exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pptx)
   ));
-  registerAsyncCommand(exportExcalidrawCommand, () => (
-    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excalidraw)
-  ));
-  registerAsyncCommand(exportPdfCommand, () => (
-    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.pdf)
-  ));
-  registerAsyncCommand(exportExcelCommand, () => (
-    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.excel)
-  ));
-  registerAsyncCommand(exportXyflowCommand, () => (
-    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.xyflow)
-  ));
-  registerAsyncCommand(exportIsoflowCommand, () => (
-    exportDocument(renderer, vscode.window.activeTextEditor?.document, exportFormats.isoflow)
-  ));
   registerAsyncCommand(validateCommand, () => (
     validateDocument(renderer, vscode.window.activeTextEditor?.document)
   ));
   registerAsyncCommand(showVersionCommand, () => showRuntimeVersion(renderer));
-  registerAsyncCommand(runCliCommand, () => {
-    const document = vscode.window.activeTextEditor?.document;
-    return runCliFeature(
-      renderer,
-      document,
-      undefined,
-      () => previewController.openMarkdownPreview(document)
-    );
-  });
   registerAsyncCommand(showUpdatesCommand, () => updates.showMenu());
   registerAsyncCommand(updateRuntimeCommand, () => updates.updateRuntime());
   registerAsyncCommand(updateExtensionCommand, () => updates.updateExtension());
@@ -424,316 +397,98 @@ async function showRuntimeVersion(renderer: XaligoRenderer): Promise<void> {
   }
 }
 
-async function runCliFeature(
+async function runPreviewAction(
   renderer: XaligoRenderer,
   document: vscode.TextDocument | undefined,
-  feature?: CliFeature,
-  openMarkdownPreview?: () => Promise<void>
+  action: PreviewAction
 ): Promise<void> {
-  const sourcePath = document?.uri.scheme === "file" ? document.uri.fsPath : "";
-  const directExports: Partial<Record<CliFeature, ExportFormat>> = {
-    "export-svg": exportFormats.svg,
-    "export-pptx": exportFormats.pptx,
-    "export-excalidraw": exportFormats.excalidraw,
-    "export-pdf": exportFormats.pdf,
-    "export-excel": exportFormats.excel,
-    "export-xyflow": exportFormats.xyflow,
-    "export-isoflow": exportFormats.isoflow
-  };
-  const directExport = feature ? directExports[feature] : undefined;
-  if (directExport) {
-    await exportDocument(renderer, document, directExport);
-    return;
+  switch (action) {
+    case "export-svg":
+      await exportDocument(renderer, document, exportFormats.svg);
+      break;
+    case "export-pptx":
+      await exportDocument(renderer, document, exportFormats.pptx);
+      break;
+    case "validate":
+      await validateDocument(renderer, document);
+      break;
+    case "render-markdown":
+      await exportMarkdownDocument(renderer, document);
+      break;
+    case "preview-markdown":
+      break;
   }
-  if (feature === "validate") {
-    await validateDocument(renderer, document);
-    return;
-  }
-  if (feature === "version") {
-    await showRuntimeVersion(renderer);
-    return;
-  }
-
-  const featureItems: Partial<Record<CliFeature, vscode.QuickPickItem & {
-    feature: CliFeature;
-    args: string[];
-  }>> = {
-    "preview-markdown": {
-      feature: "preview-markdown",
-      label: "Preview Markdown",
-      description: "serve Markdown",
-      args: ["serve"]
-    },
-    serve: {
-      feature: "serve",
-      label: "Serve live preview",
-      description: "serve",
-      args: ["serve"]
-    },
-    "render-markdown": {
-      feature: "render-markdown",
-      label: "Render Markdown",
-      description: "render markdown",
-      args: ["render", "markdown"]
-    },
-    "generate-xal": {
-      feature: "generate-xal",
-      label: "Generate xal source",
-      description: "generate xal",
-      args: ["generate", "xal"]
-    },
-    "add-service": {
-      feature: "add-service",
-      label: "Add one service to Excalidraw",
-      description: "add service --name",
-      args: ["add", "service"]
-    },
-    "add-services": {
-      feature: "add-services",
-      label: "Add services from CSV to Excalidraw",
-      description: "add service --list",
-      args: ["add", "service"]
-    },
-    init: {
-      feature: "init",
-      label: "Initialize sample project",
-      description: "init",
-      args: ["init"]
-    },
-    help: {
-      feature: "help",
-      label: "Show CLI help",
-      description: "help",
-      args: ["help"]
-    },
-    "completion-bash": {
-      feature: "completion-bash",
-      label: "Generate Bash completion",
-      description: "completion bash",
-      args: ["completion", "bash"]
-    },
-    "completion-fish": {
-      feature: "completion-fish",
-      label: "Generate Fish completion",
-      description: "completion fish",
-      args: ["completion", "fish"]
-    },
-    "completion-powershell": {
-      feature: "completion-powershell",
-      label: "Generate PowerShell completion",
-      description: "completion powershell",
-      args: ["completion", "powershell"]
-    },
-    "completion-zsh": {
-      feature: "completion-zsh",
-      label: "Generate Zsh completion",
-      description: "completion zsh",
-      args: ["completion", "zsh"]
-    },
-    custom: {
-      feature: "custom",
-      label: "Custom CLI arguments…",
-      description: "Every xaligo CLI command and flag",
-      args: []
-    }
-  };
-  const items = Object.values(featureItems);
-  const selected = feature
-    ? featureItems[feature]
-    : await vscode.window.showQuickPick(items, {
-      placeHolder: "Select a xaligo CLI feature"
-    });
-  if (!selected) {
-    return;
-  }
-  if (selected.feature === "preview-markdown") {
-    if (openMarkdownPreview) {
-      await openMarkdownPreview();
-    } else {
-      vscode.window.showWarningMessage(
-        "Use xaligo: Open Preview to show Markdown in the xaligo preview panel."
-      );
-    }
-    return;
-  }
-  if (
-    (selected.feature === "serve" || selected.feature === "render-markdown") &&
-    document?.uri.scheme === "file" &&
-    document.isDirty &&
-    !await document.save()
-  ) {
-    vscode.window.showWarningMessage("Save the selected document before running xaligo.");
-    return;
-  }
-  const preparedArgs = await prepareCliFeatureArguments(
-    selected.feature,
-    selected.args,
-    sourcePath
-  );
-  if (!preparedArgs) {
-    return;
-  }
-  const input = await vscode.window.showInputBox({
-    prompt: "Review or add any CLI flags, then press Enter to run in a terminal",
-    placeHolder: "render diagram.xal --format svg -o diagram.svg",
-    value: preparedArgs.map(formatCommandArgument).join(" ")
-  });
-  if (!input) {
-    return;
-  }
-  let args: string[];
-  try {
-    args = parseCommandArguments(input);
-  } catch (error) {
-    vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
-    return;
-  }
-  await launchCliTerminal(renderer, args, sourcePath);
 }
 
-async function launchCliTerminal(
+async function exportMarkdownDocument(
   renderer: XaligoRenderer,
-  args: string[],
-  sourcePath: string
-): Promise<vscode.Terminal> {
-  const launch = await renderer.terminalLaunch(args);
-  const terminal = vscode.window.createTerminal({
-    name: `xaligo ${args[0] ?? ""}`.trim(),
-    shellPath: launch.binary,
-    shellArgs: launch.args,
-    env: launch.env,
-    cwd: sourcePath ? path.dirname(sourcePath) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  document: vscode.TextDocument | undefined
+): Promise<void> {
+  if (!isFileMarkdownDocument(document)) {
+    vscode.window.showWarningMessage("Open a saved Markdown file before exporting it.");
+    return;
+  }
+  if (document.isDirty && !await document.save()) {
+    return;
+  }
+
+  const sourcePath = document.uri.fsPath;
+  const parsedSource = path.parse(sourcePath);
+  const outputUri = await vscode.window.showSaveDialog({
+    title: "Export rendered Markdown",
+    defaultUri: vscode.Uri.file(path.join(
+      parsedSource.dir,
+      `${parsedSource.name}.embedded${parsedSource.ext || ".md"}`
+    )),
+    filters: { Markdown: ["md", "markdown"] },
+    saveLabel: "Export"
   });
-  terminal.show();
-  return terminal;
-}
-
-async function prepareCliFeatureArguments(
-  feature: CliFeature,
-  baseArgs: string[],
-  sourcePath: string
-): Promise<string[] | undefined> {
-  const defaultUri = vscode.Uri.file(cliWorkingDirectory(sourcePath));
-  if (feature === "serve") {
-    const extension = path.extname(sourcePath).toLowerCase();
-    const serveSource = [".xal", ".md", ".markdown"].includes(extension)
-      ? sourcePath
-      : await selectCliFile(
-        "Select a .xal or Markdown file to serve",
-        { "xaligo or Markdown": ["xal", "md", "markdown"] },
-        defaultUri
-      );
-    return serveSource
-      ? buildServeArguments(serveSource, configuredServePort())
-      : undefined;
+  if (!outputUri) {
+    return;
   }
-  if (feature === "render-markdown") {
-    const markdownPath = isMarkdownFilePath(sourcePath)
-      ? sourcePath
-      : await selectCliFile(
-        "Select Markdown to render",
-        { Markdown: ["md", "markdown"] },
-        defaultUri
-      );
-    if (!markdownPath) {
-      return undefined;
+
+  const outputPath = outputUri.fsPath;
+  const parsedOutput = path.parse(outputPath);
+  const svgDirectory = path.join(parsedOutput.dir, `${parsedOutput.name}.assets`);
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Exporting rendered Markdown",
+      cancellable: true
+    },
+    async (_progress, token) => {
+      const abortController = new AbortController();
+      const cancellationSubscription = token.onCancellationRequested(() => abortController.abort());
+      try {
+        await fs.mkdir(svgDirectory, { recursive: true });
+        const result = await renderer.renderMarkdown(
+          sourcePath,
+          outputPath,
+          svgDirectory,
+          abortController.signal
+        );
+        const output = await fs.stat(outputPath).catch(() => undefined);
+        if (!output?.isFile()) {
+          throw new Error("xaligo did not generate the rendered Markdown output.");
+        }
+        const warningSuffix = result.warnings.length > 0
+          ? " Completed with warnings; see the xaligo output channel."
+          : "";
+        xaligoLogger().info(`exported rendered Markdown: ${outputPath}`);
+        vscode.window.showInformationMessage(
+          `Exported rendered Markdown: ${outputPath}.${warningSuffix}`
+        );
+      } catch (error) {
+        if (abortController.signal.aborted || isAbortError(error)) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`Failed to export rendered Markdown: ${message}`);
+      } finally {
+        cancellationSubscription.dispose();
+      }
     }
-    const parsed = path.parse(markdownPath);
-    const outputUri = await vscode.window.showSaveDialog({
-      title: "Export rendered Markdown",
-      defaultUri: vscode.Uri.file(path.join(
-        parsed.dir,
-        `${parsed.name}.embedded${parsed.ext || ".md"}`
-      )),
-      filters: { Markdown: ["md", "markdown"] },
-      saveLabel: "Export"
-    });
-    return outputUri
-      ? [...baseArgs, markdownPath, "--output", outputUri.fsPath]
-      : undefined;
-  }
-  if (feature === "generate-xal") {
-    const outputUri = await vscode.window.showSaveDialog({
-      title: "Generate xal source",
-      defaultUri: vscode.Uri.file(path.join(cliWorkingDirectory(sourcePath), "architecture.xal")),
-      filters: { xaligo: ["xal"] },
-      saveLabel: "Generate"
-    });
-    return outputUri ? buildGenerateXalArguments(outputUri.fsPath) : undefined;
-  }
-  if (feature === "add-service" || feature === "add-services") {
-    const targetPath = await selectCliFile(
-      "Select the Excalidraw file to update",
-      { Excalidraw: ["excalidraw"] },
-      defaultUri
-    );
-    if (!targetPath) {
-      return undefined;
-    }
-    if (feature === "add-service") {
-      const serviceName = await vscode.window.showInputBox({
-        title: "Add service to Excalidraw",
-        prompt: "Enter an AWS service name",
-        placeHolder: "Amazon EC2",
-        ignoreFocusOut: true
-      });
-      return serviceName?.trim()
-        ? [...baseArgs, "--name", serviceName.trim(), "--file", targetPath]
-        : undefined;
-    }
-    const listPath = await selectCliFile(
-      "Select the service list",
-      { CSV: ["csv"] },
-      vscode.Uri.file(path.dirname(targetPath))
-    );
-    return listPath
-      ? [...baseArgs, "--list", listPath, "--file", targetPath]
-      : undefined;
-  }
-  if (feature === "init") {
-    const selectedFolders = await vscode.window.showOpenDialog({
-      title: "Select the folder to initialize",
-      defaultUri,
-      canSelectFiles: false,
-      canSelectFolders: true,
-      canSelectMany: false,
-      openLabel: "Initialize here"
-    });
-    return selectedFolders?.[0]
-      ? [...baseArgs, "--output", selectedFolders[0].fsPath]
-      : undefined;
-  }
-  return [...baseArgs];
-}
-
-function configuredServePort(): number {
-  const configured = vscode.workspace.getConfiguration("xaligo")
-    .get<unknown>("servePort", defaultServePort);
-  return normalizeServePort(configured);
-}
-
-async function selectCliFile(
-  title: string,
-  filters: Record<string, string[]>,
-  defaultUri: vscode.Uri
-): Promise<string | undefined> {
-  const selected = await vscode.window.showOpenDialog({
-    title,
-    defaultUri,
-    filters,
-    canSelectFiles: true,
-    canSelectFolders: false,
-    canSelectMany: false,
-    openLabel: "Select"
-  });
-  return selected?.[0]?.fsPath;
-}
-
-function cliWorkingDirectory(sourcePath: string): string {
-  if (sourcePath) {
-    return path.dirname(sourcePath);
-  }
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  );
 }
 
 function isFileMarkdownDocument(

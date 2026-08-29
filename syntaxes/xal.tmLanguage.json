@@ -81,7 +81,7 @@
       "patterns": [
         {
           "name": "keyword.control.layout.xaligo",
-          "match": "\\b(?:xaligo|metadata|entry|imports|import|styles|style|data|frames|frame|container|row|col)\\b"
+          "match": "\\b(?:xaligo|scene|metadata|entry|imports|import|styles|style|data|frames|frame|capture|container|row|col)\\b"
         },
         {
           "name": "support.type.data.xaligo",
@@ -105,7 +105,7 @@
         },
         {
           "name": "support.type.shape.xaligo",
-          "match": "\\b(?:rectangle|port|card|panel|text)\\b"
+          "match": "\\b(?:rectangle|port|card|panel|text|label)\\b"
         },
         {
           "name": "entity.name.type.uml.xaligo",
@@ -117,7 +117,7 @@
         },
         {
           "name": "keyword.operator.connection.tag.xaligo",
-          "match": "\\b(?:connections|connection)\\b"
+          "match": "\\b(?:connections|connection|line|route|traffic)\\b"
         },
         {
           "name": "support.function.connection-point.xaligo",
@@ -167,7 +167,7 @@
       "patterns": [
         {
           "name": "entity.other.attribute-name.known.xaligo",
-          "match": "\\b(?:version|width|height|class|layout|gap|row-gap|title|id|src|dst|span|row|col|visible|border|item-size|font-size|font-family|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|overflow|icon-id|name|ref|target|kind|color|key-color|background-color|key-background-color|border-color|key-width|break-before|stroke-width|stroke-style|arrowhead|start-arrowhead|end-arrowhead|side|anchor|src-side|dst-side|src-anchor|dst-anchor|src-frame-side|dst-frame-side|src-frame-anchor|dst-frame-anchor|x|y|dx|dy|bends|points|via|scale|coordinate-scale|grid|data|format|dialect|columns|references|on-delete|on-update|type|primary-key|nullable|unique|default|key|value|position|direction|lanes|theme|component-width|component-height|interface-width|lane|owner|stereotype|abstract|static|label|guard|event|action|route|src-multiplicity|dst-multiplicity|order|mode|description|show-element-names|tone)\\b"
+          "match": "\\b(?:version|width|height|class|layout|gap|row-gap|title|id|src|dst|source|target|span|weight|row|col|visible|border|item-size|font-size|font-family|arrowhead-size|margin|margin-top|margin-right|margin-bottom|margin-left|content-width|content-height|align|overflow|icon|icon-ref|icon-id|name|ref|kind|color|fill|stroke|corner-radius|opacity|shape|key-color|background-color|key-background-color|border-color|key-width|break-before|stroke-width|stroke-style|style|arrow|src-arrow|dst-arrow|source-arrow|target-arrow|arrowhead|start-arrowhead|end-arrowhead|side|anchor|src-side|dst-side|src-anchor|dst-anchor|src-frame-side|dst-frame-side|src-frame-anchor|dst-frame-anchor|x|y|dx|dy|bends|points|via|scale|coordinate-scale|grid|data|format|dialect|columns|references|on-delete|on-update|type|primary-key|nullable|unique|default|key|value|position|direction|lanes|theme|component-width|component-height|interface-width|lane|owner|stereotype|abstract|static|label|guard|event|action|route|routing|src-multiplicity|dst-multiplicity|order|mode|description|show-element-names|tone)\\b"
         },
         {
           "name": "entity.other.attribute-name.xml.xaligo",
@@ -239,7 +239,7 @@
         },
         {
           "name": "constant.language.layout.xaligo",
-          "match": "\\b(?:horizontal|vertical|staggered|error|visible|top|right|bottom|left|middle|center|spread|solid|dashed|dotted|none|connection|traffic|route|arrow|triangle|stealth|diamond|oval|s)\\b"
+          "match": "\\b(?:horizontal|vertical|none|staggered|error|visible|top|right|bottom|left|start|end|middle|center|middle-spread|center-spread|spread|solid|dashed|dotted|dash|dot|orthogonal|straight|connection|traffic|route|rectangle|ellipse|arrow|thin|standard|triangle|stealth|diamond|circle|oval|s)\\b"
         },
         {
           "name": "constant.numeric.xaligo",
