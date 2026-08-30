@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.22
+
+- Updated the bundled `@xaligo/xaligo` runtime and native assets to the stable
+  `0.2.3` release.
+
 ## 0.0.21
 
 - Updated the bundled `@xaligo/xaligo` runtime and native assets to the stable
