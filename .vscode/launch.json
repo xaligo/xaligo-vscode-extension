@@ -18,7 +18,11 @@
         // Run `make build` there first, or clear this to use the default
         // bundled runtime. `xaligo.executablePath` (a user/workspace
         // setting) is ignored while this is set.
-        "XALIGO_CLI_PATH": "${workspaceFolder}/../xaligo/.bin/xaligo"
+        "XALIGO_CLI_PATH": "${workspaceFolder}/../xaligo/.bin/xaligo",
+        // Keep the local CLI's catalogs and SVG assets rooted in the same
+        // sibling checkout. Without this, the CLI resolves relative resource
+        // paths from the extension workspace instead.
+        "XALIGO_HOME": "${workspaceFolder}/../xaligo"
       }
     }
   ]

@@ -67,11 +67,11 @@ describe("preview editor title action", () => {
     });
   });
 
-  it("targets stable xaligo 0.2.1 without exposing terminal-backed actions", () => {
+  it("targets stable xaligo 0.2.2 without exposing terminal-backed actions", () => {
     const commandIDs = manifest.contributes.commands.map(({ command }) => command);
-    expect(manifest.version).toBe("0.0.20");
+    expect(manifest.version).toBe("0.0.21");
     expect(manifest.engines.vscode).toBe("^1.91.0");
-    expect(manifest.dependencies["@xaligo/xaligo"]).toBe("0.2.1");
+    expect(manifest.dependencies["@xaligo/xaligo"]).toBe("0.2.2");
     expect(manifest.dependencies["vscode-languageclient"]).toBe("^10.1.1");
     expect(commandIDs).not.toEqual(expect.arrayContaining([
       "xaligo.renderTerminal",

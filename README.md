@@ -219,13 +219,14 @@ every native CLI invocation, including failures. Use **Developer: Set Log
 Level...** and pick "xaligo" to see `Debug`/`Trace` level detail such as the
 exact command line for each render.
 
-`.vscode/launch.json`'s "Run Extension" configuration sets the
-`XALIGO_CLI_PATH` environment variable to `../xaligo/.bin/xaligo`, so `F5`
-exercises a locally built native CLI from a sibling checkout of the
-[xaligo](https://github.com/xaligo/xaligo) repository (`make build` there)
-instead of the bundled or managed runtime. `XALIGO_CLI_PATH` takes priority
-over the `xaligo.executablePath` setting; clear it in `launch.json`, or edit
-the path, to use a different runtime while debugging.
+`.vscode/launch.json`'s "Run Extension" configuration sets
+`XALIGO_CLI_PATH` to `../xaligo/.bin/xaligo` and `XALIGO_HOME` to the sibling
+checkout root. This makes `F5` exercise a locally built native CLI from the
+[xaligo](https://github.com/xaligo/xaligo) repository (`make build` there),
+with its service catalogs and SVG assets, instead of the bundled or managed
+runtime. `XALIGO_CLI_PATH` takes priority over the `xaligo.executablePath`
+setting; clear it in `launch.json`, or edit the path, to use a different
+runtime while debugging.
 
 Before publishing:
 

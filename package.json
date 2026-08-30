@@ -2,7 +2,7 @@
   "name": "xaligo-vscode-extension",
   "displayName": "xaligo",
   "description": "VS Code language-server support, interactive preview, and structural diff for the xaligo .xal diagram DSL.",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "publisher": "xaligo",
   "license": "MIT",
   "icon": "assets/xaligo-icon-vscode-128.png",
@@ -343,7 +343,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@xaligo/xaligo": "0.2.1",
+    "@xaligo/xaligo": "0.2.2",
     "element-plus": "^2.14.3",
     "tar": "^7.5.22",
     "vscode-languageclient": "^10.1.1",

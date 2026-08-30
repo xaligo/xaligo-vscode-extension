@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.21
+
+- Updated the bundled `@xaligo/xaligo` runtime and native assets to the stable
+  `0.2.2` release.
+- Fixed local Extension Development Host rendering with the sibling xaligo CLI
+  by rooting its service catalogs and SVG assets through `XALIGO_HOME`.
+
 ## 0.0.20
 
 - Replaced the `main-40` prerelease runtime package and native assets with the
